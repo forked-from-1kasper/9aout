@@ -23,21 +23,19 @@
 
 segment text, data = {0};
 
-uint64_t sys_plan9_unimplemented(greg_t * regs)
+uint64_t sys_plan9_unimplemented(uint64_t * rsp, greg_t * regs)
 {
     printf("P9: %lld called but unimplemented!\n", regs[REG_RBP]);
     return 0;
 }
 
-uint64_t sysexits(greg_t * regs)
+uint64_t sysexits(uint64_t * rsp, greg_t * regs)
 {
     exit(0);
 }
 
-uint64_t syspread(greg_t * regs)
+uint64_t syspread(uint64_t * rsp, greg_t * regs)
 {
-    uint64_t * rsp = (uint64_t*) regs[REG_RSP];
-
     int fd = (int) *(++rsp);
     void * buf = (void*) *(++rsp);
     size_t len = (size_t) *(++rsp);
@@ -47,10 +45,8 @@ uint64_t syspread(greg_t * regs)
     else return pread(fd, buf, len, offset);
 }
 
-uint64_t syspwrite(greg_t * regs)
+uint64_t syspwrite(uint64_t * rsp, greg_t * regs)
 {
-    uint64_t * rsp = (uint64_t*) regs[REG_RSP];
-
     int fd = (int) *(++rsp);
     void * buf = (void*) *(++rsp);
     size_t len = (size_t) *(++rsp);
@@ -60,9 +56,8 @@ uint64_t syspwrite(greg_t * regs)
     else return pwrite(fd, buf, len, offset);
 }
 
-uint64_t sysbrk(greg_t * regs)
+uint64_t sysbrk(uint64_t * rsp, greg_t * regs)
 {
-    uint64_t * rsp = (uint64_t*) regs[REG_RSP];
     void * addr = (void*) *(++rsp);
 
     size_t size = addr - data.begin;
@@ -130,11 +125,12 @@ static void handle_sigsys(int sig, siginfo_t *info, void *ucontext)
     ucontext_t *context = (ucontext_t *) ucontext;
     greg_t *regs = context->uc_mcontext.gregs;
 
+    uint64_t * rsp = (uint64_t*) regs[REG_RSP];
     uint8_t syscall = regs[REG_RBP];
 
     if (syscall > PWRITE || systab[syscall] == NULL)
         printf("Bad system call\n");
-    else regs[REG_RAX] = systab[syscall](regs);
+    else regs[REG_RAX] = systab[syscall](rsp, regs);
 }
 
 int main(int argc, char * argv[]) {

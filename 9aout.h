@@ -65,6 +65,6 @@ struct segment
 #define USTKTOP   (0x00007ffffffff000ull)  /* top of stack */
 #define USTKSIZE  (16*MiB)                 /* size of user stack */
 
-typedef uint64_t syscall_handler(greg_t *);
+typedef uint64_t syscall_handler(uint64_t *, greg_t *);
 
 #endif
