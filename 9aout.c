@@ -66,8 +66,10 @@ uint64_t sysbrk(greg_t * regs)
     void * addr = (void*) *(++rsp);
 
     size_t size = addr - data;
-    data = mremap(data, data_size, size, 0);
-    data_size = size;
+    data        = mremap(data, data_size, size, 0);
+    data_size   = size;
+
+    return (data == NULL) ? -1 : 0;
 }
 
 syscall_handler * systab[] = {
