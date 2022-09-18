@@ -21,7 +21,7 @@
 #include "9aout.h"
 #include "syscall.h"
 
-size_t data_size = 0; void *text, *data;
+segment text, data = {0};
 
 uint64_t sys_plan9_unimplemented(greg_t * regs)
 {
@@ -65,12 +65,12 @@ uint64_t sysbrk(greg_t * regs)
     uint64_t * rsp = (uint64_t*) regs[REG_RSP];
     void * addr = (void*) *(++rsp);
 
-    size_t size = addr - data;
-    void * ptr  = mremap(data, data_size, size, 0);
+    size_t size = addr - data.begin;
+    void * ptr  = mremap(data.begin, data.size, size, 0);
 
     if (ptr == MAP_FAILED) return -1;
 
-    data_size = size; data = ptr; return 0;
+    data.size = size; data.begin = ptr; return 0;
 }
 
 syscall_handler * systab[] = {
@@ -199,18 +199,18 @@ int main(int argc, char * argv[]) {
         }
     }
 
-    uint32_t text_size   = sizeof(aout) + header.text;
-    uint32_t data_offset = (text_size / ALIGN + 1) * ALIGN + 1;
+    text.size = sizeof(aout) + header.text;
+    data.size = header.data + header.bss;
 
-    data_size = header.data + header.bss;
+    uint32_t offset = (text.size / (ALIGN + 1) + 1) * (ALIGN + 1);
 
-    text = mmap((char*) UTZERO, text_size, PROT_READ | PROT_EXEC, MAP_SHARED | MAP_FIXED, fd, 0);
-    data = mmap((char*) UTZERO + data_offset, data_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    text.begin = mmap((char*) UTZERO, text.size, PROT_READ | PROT_EXEC, MAP_SHARED | MAP_FIXED, fd, 0);
+    data.begin = mmap((char*) UTZERO + offset, data.size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
 
-    if (text == NULL || data == NULL) return -ENOMEM;
+    if (text.begin == NULL || data.begin == NULL) return -ENOMEM;
 
-    lseek(fd, text_size, SEEK_SET); read(fd, data, header.data);
-    memset(data + header.data + 1, 0, header.bss);
+    lseek(fd, text.size, SEEK_SET); read(fd, data.begin, header.data);
+    memset(data.begin + header.data + 1, 0, header.bss);
 
     uint64_t * rsp; asm volatile("mov %%rsp, %0" : "=r"(rsp));
     rsp -= TOS_SIZE; uint64_t * tos = rsp;

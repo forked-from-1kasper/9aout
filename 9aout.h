@@ -16,6 +16,14 @@ struct aout
     uint64_t entry;    /* entry point */
 };
 
+typedef struct segment segment;
+
+struct segment
+{
+    void * begin;
+    uint32_t size;
+};
+
 #define HDR_MAGIC 0x00008000 /* header expansion */
 
 #define _MAGIC(f, b) ((f)|((((4*(b))+0)*(b))+7))
