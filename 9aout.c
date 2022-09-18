@@ -183,7 +183,7 @@ int main(int argc, char * argv[]) {
 
     unsigned long e_phnum = getauxval(AT_PHNUM);
     if (e_phnum == 0) {
-        perror("getauxval failed\n");
+        fprintf(stderr, "getauxval failed\n");
         return 1;
     }
 
@@ -193,7 +193,7 @@ int main(int argc, char * argv[]) {
 
         if (phdr.p_type == PT_LOAD && phdr.p_flags & PF_X) {
             if (prctl(PR_SET_SYSCALL_USER_DISPATCH, PR_SYS_DISPATCH_ON, phdr.p_vaddr, phdr.p_memsz, &glob_sel)) {
-                perror("Kernel does not support CONFIG_SYSCALL_USER_DISPATCH\n");
+                fprintf(stderr, "Kernel does not support CONFIG_SYSCALL_USER_DISPATCH\n");
                 return 1;
             }
         }
