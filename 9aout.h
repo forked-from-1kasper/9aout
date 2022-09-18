@@ -1,5 +1,5 @@
-#ifndef NINELOAD_H
-#define NINELOAD_H
+#ifndef NINEAOUT_H
+#define NINEAOUT_H
 
 typedef struct aout aout;
 
