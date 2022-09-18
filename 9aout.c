@@ -69,10 +69,8 @@ uint64_t sysbrk(greg_t * regs)
     void * ptr  = mremap(data, data_size, size, 0);
 
     if (ptr == MAP_FAILED) return -1;
-    else {
-        data_size = size; data = ptr;
-        return 0;
-    }
+
+    data_size = size; data = ptr; return 0;
 }
 
 syscall_handler * systab[] = {
