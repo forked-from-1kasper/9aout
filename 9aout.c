@@ -21,7 +21,7 @@
 #include "9aout.h"
 #include "syscall.h"
 
-segment text, data = {0};
+int fd; segment text, data = {0};
 
 uint64_t sys_plan9_unimplemented(uint64_t * rsp, greg_t * regs)
 {
@@ -31,6 +31,10 @@ uint64_t sys_plan9_unimplemented(uint64_t * rsp, greg_t * regs)
 
 uint64_t sysexits(uint64_t * rsp, greg_t * regs)
 {
+    munmap(text.begin, text.size);
+    munmap(data.begin, data.size);
+    close(fd);
+
     exit(0);
 }
 
@@ -139,7 +143,7 @@ int main(int argc, char * argv[]) {
         return -EINVAL;
     }
 
-    int fd = open(argv[1], O_RDONLY);
+    fd = open(argv[1], O_RDONLY);
     aout header; read(fd, &header, sizeof(header));
 
     header.magic    = be32toh(header.magic);
