@@ -204,13 +204,13 @@ int main(int argc, char * argv[]) {
 
     uint32_t offset = (text.size / (ALIGN + 1) + 1) * (ALIGN + 1);
 
-    text.begin = mmap((char*) UTZERO, text.size, PROT_READ | PROT_EXEC, MAP_SHARED | MAP_FIXED, fd, 0);
-    data.begin = mmap((char*) UTZERO + offset, data.size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    text.begin = mmap((char*) UTZERO, text.size, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_FIXED, fd, 0);
+    data.begin = mmap((char*) UTZERO + offset, data.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
 
     if (text.begin == NULL || data.begin == NULL) return -ENOMEM;
 
     lseek(fd, text.size, SEEK_SET); read(fd, data.begin, header.data);
-    memset(data.begin + header.data + 1, 0, header.bss);
+    memset(data.begin + header.data, 0, header.bss);
 
     uint64_t * rsp; asm volatile("mov %%rsp, %0" : "=r"(rsp));
     rsp -= TOS_SIZE; uint64_t * tos = rsp;
