@@ -218,11 +218,14 @@ int main(int argc, char * argv[]) {
     argc--; argv++; rsp -= argc; *(--rsp) = argc;
     for (size_t i = 0; i < argc; i++) rsp[i + 1] = (uint64_t) argv[i];
 
-    asm volatile("mov %0, %%rax" ::"r"(tos));
-    asm volatile("mov %0, %%rsp" ::"r"(rsp));
-
     glob_sel = SYSCALL_DISPATCH_FILTER_BLOCK;
-    asm volatile("jmp *%0" ::"r"((void*) header.entry));
+
+    asm volatile(
+        "mov %0, %%rax;"
+        "mov %1, %%rsp;"
+        "jmp *%2;"
+        :: "r"(tos), "r"(rsp), "r"((void*) header.entry)
+    );
 
     __builtin_unreachable();
 }
