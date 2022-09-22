@@ -72,12 +72,73 @@ uint64_t sysbrk(uint64_t * rsp, greg_t * regs)
     data.size = size; data.begin = ptr; return 0;
 }
 
+uint64_t sysopen(uint64_t * rsp, greg_t * regs)
+{
+    char * file = (char*) *(++rsp);
+    uint64_t omode = (uint64_t) *(++rsp);
+
+    return open(file, omode);
+}
+
+uint64_t sysclose(uint64_t * rsp, greg_t * regs)
+{
+    int fd = (int) *(++rsp);
+    return close(fd);
+}
+
+uint64_t sysseek(uint64_t * rsp, greg_t * regs)
+{
+    off_t * retp = (off_t*) *(++rsp);
+
+    int fd = (int) *(++rsp);
+    off_t offset = (off_t) *(++rsp);
+    int type = (int) *(++rsp);
+
+    int whence = 0;
+    switch (type) {
+        case 0: whence = SEEK_SET; break;
+        case 1: whence = SEEK_CUR; break;
+        case 2: whence = SEEK_END; break;
+    }
+
+    *retp = lseek(fd, offset, whence);
+    return 0;
+}
+
+uint64_t syscreate(uint64_t * rsp, greg_t * regs)
+{
+    char * file = (char*) *(++rsp);
+    uint64_t omode = (uint64_t) *(++rsp);
+    mode_t perm = (mode_t) *(++rsp);
+
+    return open(file, omode | O_CREAT, perm);
+}
+
+uint64_t sysremove(uint64_t * rsp, greg_t * regs)
+{
+    char * file = (char*) *(++rsp);
+    return unlink(file);
+}
+
+uint64_t sysfd2path(uint64_t * rsp, greg_t * regs)
+{
+    int fd = (int) *(++rsp);
+    char * buf = (char*) *(++rsp);
+    size_t nbuf = (size_t) *(++rsp);
+
+    char filename[255] = {0};
+    sprintf(filename, "/proc/self/fd/%d", fd);
+    readlink(filename, buf, nbuf);
+
+    return 0;
+}
+
 syscall_handler * systab[] = {
     [SYSR1]         sys_plan9_unimplemented,
     [_ERRSTR]       sys_plan9_unimplemented,
     [BIND]          sys_plan9_unimplemented,
     [CHDIR]         sys_plan9_unimplemented,
-    [CLOSE]         sys_plan9_unimplemented,
+    [CLOSE]         sysclose,
     [DUP]           sys_plan9_unimplemented,
     [ALARM]         sys_plan9_unimplemented,
     [EXEC]          sys_plan9_unimplemented,
@@ -87,7 +148,7 @@ syscall_handler * systab[] = {
     [_FSTAT]        sys_plan9_unimplemented,
     [SEGBRK]        sys_plan9_unimplemented,
     [MOUNT]         sys_plan9_unimplemented,
-    [OPEN]          sys_plan9_unimplemented,
+    [OPEN]          sysopen,
     [_READ]         sys_plan9_unimplemented,
     [OSEEK]         sys_plan9_unimplemented,
     [SLEEP]         sys_plan9_unimplemented,
@@ -95,10 +156,10 @@ syscall_handler * systab[] = {
     [RFORK]         sys_plan9_unimplemented,
     [_WRITE]        sys_plan9_unimplemented,
     [PIPE]          sys_plan9_unimplemented,
-    [CREATE]        sys_plan9_unimplemented,
-    [FD2PATH]       sys_plan9_unimplemented,
+    [CREATE]        syscreate,
+    [FD2PATH]       sysfd2path,
     [BRK_]          sysbrk,
-    [REMOVE]        sys_plan9_unimplemented,
+    [REMOVE]        sysremove,
     [_WSTAT]        sys_plan9_unimplemented,
     [_FWSTAT]       sys_plan9_unimplemented,
     [NOTIFY]        sys_plan9_unimplemented,
@@ -110,7 +171,7 @@ syscall_handler * systab[] = {
     [RENDEZVOUS]    sys_plan9_unimplemented,
     [UNMOUNT]       sys_plan9_unimplemented,
     [_WAIT]         sys_plan9_unimplemented,
-    [SEEK]          sys_plan9_unimplemented,
+    [SEEK]          sysseek,
     [FVERSION]      sys_plan9_unimplemented,
     [ERRSTR]        sys_plan9_unimplemented,
     [STAT]          sys_plan9_unimplemented,
