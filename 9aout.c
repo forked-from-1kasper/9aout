@@ -261,20 +261,20 @@ int main(int argc, char * argv[]) {
     }
 
     fd = open(argv[1], O_RDONLY);
-    aout header; read(fd, &header, sizeof(header));
+    header hdr; read(fd, &hdr, sizeof(header));
 
-    header.magic    = be32toh(header.magic);
-    header.text     = be32toh(header.text);
-    header.data     = be32toh(header.data);
-    header.bss      = be32toh(header.bss);
-    header.syms     = be32toh(header.syms);
-    header.reserved = be32toh(header.reserved);
-    header.spsz     = be32toh(header.spsz);
-    header.pcsz     = be32toh(header.pcsz);
-    header.entry    = be64toh(header.entry);
+    hdr.magic    = be32toh(hdr.magic);
+    hdr.text     = be32toh(hdr.text);
+    hdr.data     = be32toh(hdr.data);
+    hdr.bss      = be32toh(hdr.bss);
+    hdr.syms     = be32toh(hdr.syms);
+    hdr.reserved = be32toh(hdr.reserved);
+    hdr.spsz     = be32toh(hdr.spsz);
+    hdr.pcsz     = be32toh(hdr.pcsz);
+    hdr.entry    = be64toh(hdr.entry);
 
-    if (header.magic != S_MAGIC) return -ENOEXEC;
-    if (header.entry < UTZERO + sizeof(aout)) return -ENOEXEC;
+    if (hdr.magic != S_MAGIC) return -ENOEXEC;
+    if (hdr.entry < UTZERO + sizeof(header)) return -ENOEXEC;
 
     int si_code, si_errno; long ret;
     struct sigaction act; sigset_t mask;
@@ -316,8 +316,8 @@ int main(int argc, char * argv[]) {
         }
     }
 
-    text.size = sizeof(aout) + header.text;
-    data.size = header.data + header.bss;
+    text.size = sizeof(header) + hdr.text;
+    data.size = hdr.data + hdr.bss;
 
     uint32_t offset = (text.size / (ALIGN + 1) + 1) * (ALIGN + 1);
 
@@ -326,8 +326,8 @@ int main(int argc, char * argv[]) {
 
     if (text.begin == NULL || data.begin == NULL) return -ENOMEM;
 
-    lseek(fd, text.size, SEEK_SET); read(fd, data.begin, header.data);
-    memset(data.begin + header.data, 0, header.bss);
+    lseek(fd, text.size, SEEK_SET); read(fd, data.begin, hdr.data);
+    memset(data.begin + hdr.data, 0, hdr.bss);
 
     uint64_t * rsp; asm volatile("mov %%rsp, %0" : "=r"(rsp));
     rsp -= TOS_SIZE; uint64_t * tos = rsp;
@@ -341,7 +341,7 @@ int main(int argc, char * argv[]) {
         "mov %0, %%rax;"
         "mov %1, %%rsp;"
         "jmp *%2;"
-        :: "r"(tos), "r"(rsp), "r"((void*) header.entry)
+        :: "r"(tos), "r"(rsp), "r"((void*) hdr.entry)
     );
 
     __builtin_unreachable();

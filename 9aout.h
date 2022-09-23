@@ -4,9 +4,9 @@
 #define ERRMAX 128 /* max length of error string */
 #define ERRLEN  64 /* max length of string passed by Exits */
 
-typedef struct aout aout;
+typedef struct header header;
 
-struct aout
+struct header
 {
     uint32_t magic;    /* magic number */
     uint32_t text;     /* size of text segment */
