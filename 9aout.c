@@ -19,23 +19,37 @@
 #include <elf.h>
 
 #include "9aout.h"
+#include "errstr.h"
 #include "syscall.h"
+
+char errstr[ERRMAX];
 
 int fd; segment text, data = {0};
 
 uint64_t sys_plan9_unimplemented(uint64_t * rsp, greg_t * regs)
 {
-    printf("P9: %lld called but unimplemented!\n", regs[REG_RBP]);
+    #ifdef DEBUG
+        printf("P9: %lld called but unimplemented!\n", regs[REG_RBP]);
+    #endif
+
     return 0;
 }
 
 uint64_t sysexits(uint64_t * rsp, greg_t * regs)
 {
+    char * buf = (char*) *(++rsp);
+
+    #ifdef DEBUG
+        if (buf != NULL) printf("exits: %s\n", buf);
+    #endif
+
+    int exitcode = (buf == NULL || buf[0] == '\0') ? 0 : -1;
+
     munmap(text.begin, text.size);
     munmap(data.begin, data.size);
     close(fd);
 
-    exit(0);
+    exit(exitcode);
 }
 
 uint64_t syspread(uint64_t * rsp, greg_t * regs)
@@ -72,12 +86,28 @@ uint64_t sysbrk(uint64_t * rsp, greg_t * regs)
     data.size = size; data.begin = ptr; return 0;
 }
 
+uint64_t seterror(char * err)
+{
+    strncpy(errstr, err, ERRMAX);
+    return -1;
+}
+
 uint64_t sysopen(uint64_t * rsp, greg_t * regs)
 {
     char * file = (char*) *(++rsp);
     uint64_t omode = (uint64_t) *(++rsp);
 
-    return open(file, omode);
+    int fd = open(file, omode);
+    if (fd != -1) return fd;
+
+    switch (errno) {
+        case EACCES:       return seterror(Eperm);
+        case EEXIST:       return seterror(Eexist);
+        case ENOENT:       return seterror(Enonexist);
+        case ENAMETOOLONG: return seterror(Efilename);
+        case ENFILE:       return seterror(Enofd);
+        default:           return seterror(strerror(errno));
+    }
 }
 
 uint64_t sysclose(uint64_t * rsp, greg_t * regs)
@@ -91,6 +121,7 @@ uint64_t sysseek(uint64_t * rsp, greg_t * regs)
     off_t * retp = (off_t*) *(++rsp);
 
     int fd = (int) *(++rsp);
+
     off_t offset = (off_t) *(++rsp);
     int type = (int) *(++rsp);
 
@@ -133,9 +164,34 @@ uint64_t sysfd2path(uint64_t * rsp, greg_t * regs)
     return 0;
 }
 
+uint64_t generrstr(char *msg, size_t nbuf)
+{
+    char buf[ERRMAX]; if (nbuf == 0) return 0;
+    if (nbuf > ERRMAX) nbuf = ERRMAX;
+
+    strncpy(buf, msg, nbuf);
+    strncpy(msg, errstr, nbuf);
+    strncpy(errstr, buf, nbuf);
+
+    return 0;
+}
+
+uint64_t syserrstr(uint64_t * rsp, greg_t * regs)
+{
+    char * msg = (char*) *(++rsp);
+    size_t len = (size_t) *(++rsp);
+
+    return generrstr(msg, len);
+}
+
+uint64_t sys_errstr(uint64_t * rsp, greg_t * regs)
+{
+    return generrstr((char*) *(++rsp), 64);
+}
+
 syscall_handler * systab[] = {
     [SYSR1]         sys_plan9_unimplemented,
-    [_ERRSTR]       sys_plan9_unimplemented,
+    [_ERRSTR]       sys_errstr,
     [BIND]          sys_plan9_unimplemented,
     [CHDIR]         sys_plan9_unimplemented,
     [CLOSE]         sysclose,
@@ -173,7 +229,7 @@ syscall_handler * systab[] = {
     [_WAIT]         sys_plan9_unimplemented,
     [SEEK]          sysseek,
     [FVERSION]      sys_plan9_unimplemented,
-    [ERRSTR]        sys_plan9_unimplemented,
+    [ERRSTR]        syserrstr,
     [STAT]          sys_plan9_unimplemented,
     [FSTAT]         sys_plan9_unimplemented,
     [WSTAT]         sys_plan9_unimplemented,

@@ -1,6 +1,9 @@
 #ifndef NINEAOUT_H
 #define NINEAOUT_H
 
+#define ERRMAX 128 /* max length of error string */
+#define ERRLEN  64 /* max length of string passed by Exits */
+
 typedef struct aout aout;
 
 struct aout
