@@ -6,5 +6,6 @@ extern char Eexist[];
 extern char Enonexist[];
 extern char Efilename[];
 extern char Enofd[];
+extern char Ebadarg[];
 
 #endif

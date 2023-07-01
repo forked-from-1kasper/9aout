@@ -56,22 +56,20 @@ uint64_t syspread(uint64_t * rsp, greg_t * regs)
 {
     int fd = (int) *(++rsp);
     void * buf = (void*) *(++rsp);
-    size_t len = (size_t) *(++rsp);
-    off_t offset = (off_t) *(++rsp);
+    size_t len = (uint32_t) *(++rsp);
+    off_t offset = (uint64_t) *(++rsp);
 
-    if (offset == -1) return read(fd, buf, len);
-    else return pread(fd, buf, len, offset);
+    return (offset == -1) ? read(fd, buf, len) : pread(fd, buf, len, offset);
 }
 
 uint64_t syspwrite(uint64_t * rsp, greg_t * regs)
 {
     int fd = (int) *(++rsp);
     void * buf = (void*) *(++rsp);
-    size_t len = (size_t) *(++rsp);
-    off_t offset = (off_t) *(++rsp);
+    size_t len = (uint32_t) *(++rsp);
+    off_t offset = (uint64_t) *(++rsp);
 
-    if (offset == -1) return write(fd, buf, len);
-    else return pwrite(fd, buf, len, offset);
+    return (offset == -1) ? write(fd, buf, len) : pwrite(fd, buf, len, offset);
 }
 
 uint64_t sysbrk(uint64_t * rsp, greg_t * regs)
@@ -95,9 +93,10 @@ uint64_t seterror(char * err)
 uint64_t sysopen(uint64_t * rsp, greg_t * regs)
 {
     char * file = (char*) *(++rsp);
-    uint64_t omode = (uint64_t) *(++rsp);
+    uint64_t omode = (uint32_t) *(++rsp);
 
     int fd = open(file, omode);
+
     if (fd != -1) return fd;
 
     switch (errno) {
@@ -113,6 +112,7 @@ uint64_t sysopen(uint64_t * rsp, greg_t * regs)
 uint64_t sysclose(uint64_t * rsp, greg_t * regs)
 {
     int fd = (int) *(++rsp);
+
     return close(fd);
 }
 
@@ -122,14 +122,15 @@ uint64_t sysseek(uint64_t * rsp, greg_t * regs)
 
     int fd = (int) *(++rsp);
 
-    off_t offset = (off_t) *(++rsp);
+    off_t offset = (uint64_t) *(++rsp);
     int type = (int) *(++rsp);
 
     int whence = 0;
     switch (type) {
-        case 0: whence = SEEK_SET; break;
-        case 1: whence = SEEK_CUR; break;
-        case 2: whence = SEEK_END; break;
+        case 0:  whence = SEEK_SET; break;
+        case 1:  whence = SEEK_CUR; break;
+        case 2:  whence = SEEK_END; break;
+        default: seterror(Ebadarg); return 0;
     }
 
     *retp = lseek(fd, offset, whence);
@@ -139,8 +140,8 @@ uint64_t sysseek(uint64_t * rsp, greg_t * regs)
 uint64_t syscreate(uint64_t * rsp, greg_t * regs)
 {
     char * file = (char*) *(++rsp);
-    uint64_t omode = (uint64_t) *(++rsp);
-    mode_t perm = (mode_t) *(++rsp);
+    uint64_t omode = (uint32_t) *(++rsp);
+    mode_t perm = (uint32_t) *(++rsp);
 
     return open(file, omode | O_CREAT, perm);
 }
@@ -179,7 +180,7 @@ uint64_t generrstr(char *msg, size_t nbuf)
 uint64_t syserrstr(uint64_t * rsp, greg_t * regs)
 {
     char * msg = (char*) *(++rsp);
-    size_t len = (size_t) *(++rsp);
+    size_t len = (uint32_t) *(++rsp);
 
     return generrstr(msg, len);
 }
