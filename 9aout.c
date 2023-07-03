@@ -112,7 +112,8 @@ uint64_t sysopen(uint64_t * rsp, greg_t * regs)
 uint64_t sysclose(uint64_t * rsp, greg_t * regs)
 {
     int fd = (int) *(++rsp);
-    int retval = close(fd);
+
+    if (close(fd) != -1) return 0;
 
     switch (errno) {
         case EBADF:  return seterror(Edabf);
@@ -120,7 +121,7 @@ uint64_t sysclose(uint64_t * rsp, greg_t * regs)
         case EIO:    return seterror(Eio);
         case ENOSPC: return seterror(Enospc);
         case EDQUOT: return seterror(Edquot);
-        default:     return retval;
+        default:     return -1;
     }
 }
 
