@@ -1,6 +1,15 @@
 #ifndef NINEAOUT_H
 #define NINEAOUT_H
 
+#define OREAD   0      /* open for read */
+#define OWRITE  1      /* write */
+#define ORDWR   2      /* read and write */
+#define OEXEC   3      /* execute, == read but check execute permission */
+#define OTRUNC  16     /* or'ed in (except for exec), truncate file first */
+#define OCEXEC  32     /* or'ed in (per file descriptor), close on exec */
+#define ORCLOSE 64     /* or'ed in, remove on close */
+#define OEXCL   0x1000 /* or'ed in, exclusive create */
+
 #define ERRMAX 128 /* max length of error string */
 #define ERRLEN  64 /* max length of string passed by Exits */
 

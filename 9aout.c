@@ -59,6 +59,10 @@ uint64_t syspread(uint64_t * rsp, greg_t * regs)
     size_t len = (uint32_t) *(++rsp);
     off_t offset = (uint64_t) *(++rsp);
 
+    #ifdef DEBUG
+        printf("PREAD fd = %d len = %ld offset = %ld\n", fd, len, offset);
+    #endif
+
     return (offset == -1) ? read(fd, buf, len) : pread(fd, buf, len, offset);
 }
 
@@ -68,6 +72,10 @@ uint64_t syspwrite(uint64_t * rsp, greg_t * regs)
     void * buf = (void*) *(++rsp);
     size_t len = (uint32_t) *(++rsp);
     off_t offset = (uint64_t) *(++rsp);
+
+    #ifdef DEBUG
+        printf("PWRITE fd = %d len = %ld offset = %ld\n", fd, len, offset);
+    #endif
 
     return (offset == -1) ? write(fd, buf, len) : pwrite(fd, buf, len, offset);
 }
@@ -90,39 +98,73 @@ uint64_t seterror(char * err)
     return -1;
 }
 
-uint64_t sysopen(uint64_t * rsp, greg_t * regs)
-{
-    char * file = (char*) *(++rsp);
-    uint64_t omode = (uint32_t) *(++rsp);
+int plan9mode(int32_t mode) {
+    int retval = 0;
 
-    int fd = open(file, omode);
+    switch (mode & 0x11) {
+        case OREAD:  retval = O_RDONLY; break;
+        case OWRITE: retval = O_WRONLY; break;
+        case ORDWR:  retval = O_RDWR;   break;
+        case OEXEC:  retval = O_RDONLY; break;
+    }
 
-    if (fd != -1) return fd;
+    if (mode & OTRUNC) retval |= O_TRUNC;
+    if (mode & OCEXEC) retval |= O_CLOEXEC;
+    if (mode & OEXCL)  retval |= O_EXCL;
 
+    return retval;
+}
+
+int modechk(char * file, int32_t mode) {
+    if ((mode & 0x11) == OEXEC)
+        if (access(file, X_OK))
+            return seterror(Eperm);
+
+    if (mode & ORCLOSE) unlink(file);
+
+    return 0;
+}
+
+int seterrno() {
     switch (errno) {
         case EACCES:       return seterror(Eperm);
         case EEXIST:       return seterror(Eexist);
         case ENOENT:       return seterror(Enonexist);
         case ENAMETOOLONG: return seterror(Efilename);
         case ENFILE:       return seterror(Enofd);
+        case EBADF:        return seterror(Edabf);
+        case EINTR:        return seterror(Eintr);
+        case EIO:          return seterror(Eio);
+        case ENOSPC:       return seterror(Enospc);
+        case EDQUOT:       return seterror(Edquot);
         default:           return seterror(strerror(errno));
     }
+}
+
+uint64_t sysopen(uint64_t * rsp, greg_t * regs)
+{
+    char * file = (char*) *(++rsp);
+    int32_t mode = (int32_t) *(++rsp);
+
+    int fd = open(file, plan9mode(mode));
+    if (modechk(file, mode)) return -1;
+
+    #ifdef DEBUG
+        printf("OPEN file = %s mode = %d fd = %d\n", file, mode, fd);
+    #endif
+
+    return (fd != -1) ? fd : seterrno();
 }
 
 uint64_t sysclose(uint64_t * rsp, greg_t * regs)
 {
     int fd = (int) *(++rsp);
 
-    if (close(fd) != -1) return 0;
+    #ifdef DEBUG
+        printf("CLOSE fd = %d\n", fd);
+    #endif
 
-    switch (errno) {
-        case EBADF:  return seterror(Edabf);
-        case EINTR:  return seterror(Eintr);
-        case EIO:    return seterror(Eio);
-        case ENOSPC: return seterror(Enospc);
-        case EDQUOT: return seterror(Edquot);
-        default:     return -1;
-    }
+    return (close(fd) != -1) ? 0 : seterrno();
 }
 
 uint64_t sysseek(uint64_t * rsp, greg_t * regs)
@@ -134,25 +176,37 @@ uint64_t sysseek(uint64_t * rsp, greg_t * regs)
     off_t offset = (uint64_t) *(++rsp);
     int type = (int) *(++rsp);
 
+    #ifdef DEBUG
+        printf("SEEK fd = %d offset = %ld type = %d\n", fd, offset, type);
+    #endif
+
     int whence = 0;
     switch (type) {
         case 0:  whence = SEEK_SET; break;
         case 1:  whence = SEEK_CUR; break;
         case 2:  whence = SEEK_END; break;
-        default: seterror(Ebadarg); return 0;
+        default: seterror(Ebadarg); return -1;
     }
 
-    *retp = lseek(fd, offset, whence);
-    return 0;
+    off_t retval = lseek(fd, offset, whence); *retp = retval;
+
+    return (retval != -1) ? 0 : seterrno();
 }
 
 uint64_t syscreate(uint64_t * rsp, greg_t * regs)
 {
     char * file = (char*) *(++rsp);
-    uint64_t omode = (uint32_t) *(++rsp);
-    mode_t perm = (uint32_t) *(++rsp);
+    int32_t mode = (int32_t) *(++rsp);
+    uint32_t perm = (uint32_t) *(++rsp);
 
-    return open(file, omode | O_CREAT, perm);
+    #ifdef DEBUG
+        printf("CREATE file = %s mode = %d perm = %d\n", file, mode, perm);
+    #endif
+
+    int fd = open(file, plan9mode(mode) | O_CREAT | O_TRUNC, perm);
+    if (modechk(file, mode)) return -1;
+
+    return (fd != -1) ? fd : seterrno();
 }
 
 uint64_t sysremove(uint64_t * rsp, greg_t * regs)
