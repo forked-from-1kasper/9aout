@@ -212,7 +212,7 @@ uint64_t syscreate(uint64_t * rsp, greg_t * regs)
 uint64_t sysremove(uint64_t * rsp, greg_t * regs)
 {
     char * file = (char*) *(++rsp);
-    return unlink(file);
+    return remove(file);
 }
 
 uint64_t sysfd2path(uint64_t * rsp, greg_t * regs)
