@@ -26,8 +26,7 @@ char errstr[ERRMAX];
 
 int fd; segment text, data = {0};
 
-uint64_t sys_plan9_unimplemented(uint64_t * rsp, greg_t * regs)
-{
+uint64_t sys_plan9_unimplemented(uint64_t * rsp, greg_t * regs) {
     #ifdef DEBUG
         printf("P9: %lld called but unimplemented!\n", regs[REG_RBP]);
     #endif
@@ -35,8 +34,7 @@ uint64_t sys_plan9_unimplemented(uint64_t * rsp, greg_t * regs)
     return 0;
 }
 
-uint64_t sysexits(uint64_t * rsp, greg_t * regs)
-{
+uint64_t sysexits(uint64_t * rsp, greg_t * regs) {
     char * buf = (char*) *(++rsp);
 
     #ifdef DEBUG
@@ -52,8 +50,7 @@ uint64_t sysexits(uint64_t * rsp, greg_t * regs)
     exit(exitcode);
 }
 
-uint64_t syspread(uint64_t * rsp, greg_t * regs)
-{
+uint64_t syspread(uint64_t * rsp, greg_t * regs) {
     int fd = (int) *(++rsp);
     void * buf = (void*) *(++rsp);
     size_t len = (uint32_t) *(++rsp);
@@ -66,8 +63,7 @@ uint64_t syspread(uint64_t * rsp, greg_t * regs)
     return (offset == -1) ? read(fd, buf, len) : pread(fd, buf, len, offset);
 }
 
-uint64_t syspwrite(uint64_t * rsp, greg_t * regs)
-{
+uint64_t syspwrite(uint64_t * rsp, greg_t * regs) {
     int fd = (int) *(++rsp);
     void * buf = (void*) *(++rsp);
     size_t len = (uint32_t) *(++rsp);
@@ -80,8 +76,7 @@ uint64_t syspwrite(uint64_t * rsp, greg_t * regs)
     return (offset == -1) ? write(fd, buf, len) : pwrite(fd, buf, len, offset);
 }
 
-uint64_t sysbrk(uint64_t * rsp, greg_t * regs)
-{
+uint64_t sysbrk(uint64_t * rsp, greg_t * regs) {
     void * addr = (void*) *(++rsp);
 
     size_t size = addr - data.begin;
@@ -92,8 +87,7 @@ uint64_t sysbrk(uint64_t * rsp, greg_t * regs)
     data.size = size; data.begin = ptr; return 0;
 }
 
-uint64_t seterror(char * err)
-{
+uint64_t seterror(char * err) {
     strncpy(errstr, err, ERRMAX);
     return -1;
 }
@@ -141,8 +135,7 @@ int seterrno() {
     }
 }
 
-uint64_t sysopen(uint64_t * rsp, greg_t * regs)
-{
+uint64_t sysopen(uint64_t * rsp, greg_t * regs) {
     char * file = (char*) *(++rsp);
     int32_t mode = (int32_t) *(++rsp);
 
@@ -156,8 +149,7 @@ uint64_t sysopen(uint64_t * rsp, greg_t * regs)
     return (fd != -1) ? fd : seterrno();
 }
 
-uint64_t sysclose(uint64_t * rsp, greg_t * regs)
-{
+uint64_t sysclose(uint64_t * rsp, greg_t * regs) {
     int fd = (int) *(++rsp);
 
     #ifdef DEBUG
@@ -167,8 +159,7 @@ uint64_t sysclose(uint64_t * rsp, greg_t * regs)
     return (close(fd) != -1) ? 0 : seterrno();
 }
 
-uint64_t sysseek(uint64_t * rsp, greg_t * regs)
-{
+uint64_t sysseek(uint64_t * rsp, greg_t * regs) {
     off_t * retp = (off_t*) *(++rsp);
 
     int fd = (int) *(++rsp);
@@ -193,8 +184,7 @@ uint64_t sysseek(uint64_t * rsp, greg_t * regs)
     return (retval != -1) ? 0 : seterrno();
 }
 
-uint64_t syscreate(uint64_t * rsp, greg_t * regs)
-{
+uint64_t syscreate(uint64_t * rsp, greg_t * regs) {
     char * file = (char*) *(++rsp);
     int32_t mode = (int32_t) *(++rsp);
     uint32_t perm = (uint32_t) *(++rsp);
@@ -209,14 +199,12 @@ uint64_t syscreate(uint64_t * rsp, greg_t * regs)
     return (fd != -1) ? fd : seterrno();
 }
 
-uint64_t sysremove(uint64_t * rsp, greg_t * regs)
-{
+uint64_t sysremove(uint64_t * rsp, greg_t * regs) {
     char * file = (char*) *(++rsp);
     return remove(file);
 }
 
-uint64_t sysfd2path(uint64_t * rsp, greg_t * regs)
-{
+uint64_t sysfd2path(uint64_t * rsp, greg_t * regs) {
     int fd = (int) *(++rsp);
     char * buf = (char*) *(++rsp);
     size_t nbuf = (size_t) *(++rsp);
@@ -228,8 +216,7 @@ uint64_t sysfd2path(uint64_t * rsp, greg_t * regs)
     return 0;
 }
 
-uint64_t generrstr(char *msg, size_t nbuf)
-{
+uint64_t generrstr(char *msg, size_t nbuf) {
     char buf[ERRMAX]; if (nbuf == 0) return 0;
     if (nbuf > ERRMAX) nbuf = ERRMAX;
 
@@ -240,8 +227,7 @@ uint64_t generrstr(char *msg, size_t nbuf)
     return 0;
 }
 
-uint64_t syserrstr(uint64_t * rsp, greg_t * regs)
-{
+uint64_t syserrstr(uint64_t * rsp, greg_t * regs) {
     char * msg = (char*) *(++rsp);
     size_t len = (uint32_t) *(++rsp);
 
@@ -249,8 +235,19 @@ uint64_t syserrstr(uint64_t * rsp, greg_t * regs)
 }
 
 uint64_t sys_errstr(uint64_t * rsp, greg_t * regs)
-{
-    return generrstr((char*) *(++rsp), 64);
+{ return generrstr((char*) *(++rsp), 64); }
+
+uint64_t sys_dup(uint64_t * rsp, greg_t * regs) {
+    int oldfd = (int32_t) *(++rsp);
+    int newfd = (int32_t) *(++rsp);
+
+    #ifdef DEBUG
+        printf("DUP oldfd = %d newfd = %d\n", oldfd, newfd);
+    #endif
+
+    int fd = (newfd == -1) ? dup(oldfd) : dup2(oldfd, newfd);
+
+    return (fd != -1) ? fd : seterrno();
 }
 
 syscall_handler * systab[] = {
@@ -259,7 +256,7 @@ syscall_handler * systab[] = {
     [BIND]          sys_plan9_unimplemented,
     [CHDIR]         sys_plan9_unimplemented,
     [CLOSE]         sysclose,
-    [DUP]           sys_plan9_unimplemented,
+    [DUP]           sys_dup,
     [ALARM]         sys_plan9_unimplemented,
     [EXEC]          sys_plan9_unimplemented,
     [EXITS]         sysexits,
@@ -305,8 +302,7 @@ syscall_handler * systab[] = {
 
 static uint8_t glob_sel = SYSCALL_DISPATCH_FILTER_ALLOW;
 
-static void handle_sigsys(int sig, siginfo_t *info, void *ucontext)
-{
+static void handle_sigsys(int sig, siginfo_t *info, void *ucontext) {
     ucontext_t *context = (ucontext_t *) ucontext;
     greg_t *regs = context->uc_mcontext.gregs;
 
