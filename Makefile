@@ -12,3 +12,9 @@ debug:
 
 clean:
 	rm -f 9aout
+
+install-binfmt: release
+	sudo ./scripts/install-binfmt.sh
+
+uninstall-binfmt:
+	sudo ./scripts/uninstall-binfmt.sh
