@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <time.h>
 #include <elf.h>
 
 #include "9aout.h"
@@ -265,6 +266,21 @@ uint64_t sys_chdir(uint64_t * rsp, greg_t * regs) {
     return (chdir(path) != -1) ? 0 : seterrno();
 }
 
+uint64_t sys_sleep(uint64_t * rsp, greg_t * regs) {
+    uint32_t millisecs = (uint32_t) *(++rsp);
+
+    #ifdef DEBUG
+        printf("SLEEP %d\n", millisecs);
+    #endif
+
+    struct timespec time = {0};
+
+    time.tv_sec = millisecs / 1000;
+    time.tv_nsec = (millisecs % 1000) * 1e+6;
+
+    return nanosleep(&time, NULL);
+}
+
 syscall_handler * systab[] = {
     [SYSR1]         sys_plan9_unimplemented,
     [_ERRSTR]       sys_plan9_deprecated,
@@ -283,7 +299,7 @@ syscall_handler * systab[] = {
     [OPEN]          sys_open,
     [_READ]         sys_plan9_deprecated,
     [OSEEK]         sys_plan9_unimplemented,
-    [SLEEP]         sys_plan9_unimplemented,
+    [SLEEP]         sys_sleep,
     [_STAT]         sys_plan9_deprecated,
     [RFORK]         sys_plan9_unimplemented,
     [_WRITE]        sys_plan9_deprecated,
