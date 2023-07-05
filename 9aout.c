@@ -34,6 +34,14 @@ uint64_t sys_plan9_unimplemented(uint64_t * rsp, greg_t * regs) {
     return 0;
 }
 
+uint64_t sys_plan9_deprecated(uint64_t * rsp, greg_t * regs) {
+    #ifdef DEBUG
+        printf("P9: syscall number %lld DEPRECATED!\n", regs[REG_RBP]);
+    #endif
+
+    return 0;
+}
+
 uint64_t sysexits(uint64_t * rsp, greg_t * regs) {
     char * buf = (char*) *(++rsp);
 
@@ -262,7 +270,7 @@ uint64_t sys_chdir(uint64_t * rsp, greg_t * regs) {
 
 syscall_handler * systab[] = {
     [SYSR1]         sys_plan9_unimplemented,
-    [_ERRSTR]       sys_errstr,
+    [_ERRSTR]       sys_plan9_deprecated,
     [BIND]          sys_plan9_unimplemented,
     [CHDIR]         sys_chdir,
     [CLOSE]         sysclose,
@@ -270,25 +278,25 @@ syscall_handler * systab[] = {
     [ALARM]         sys_plan9_unimplemented,
     [EXEC]          sys_plan9_unimplemented,
     [EXITS]         sysexits,
-    [_FSESSION]     sys_plan9_unimplemented,
+    [_FSESSION]     sys_plan9_deprecated,
     [FAUTH]         sys_plan9_unimplemented,
-    [_FSTAT]        sys_plan9_unimplemented,
+    [_FSTAT]        sys_plan9_deprecated,
     [SEGBRK]        sys_plan9_unimplemented,
     [MOUNT]         sys_plan9_unimplemented,
     [OPEN]          sysopen,
-    [_READ]         sys_plan9_unimplemented,
+    [_READ]         sys_plan9_deprecated,
     [OSEEK]         sys_plan9_unimplemented,
     [SLEEP]         sys_plan9_unimplemented,
-    [_STAT]         sys_plan9_unimplemented,
+    [_STAT]         sys_plan9_deprecated,
     [RFORK]         sys_plan9_unimplemented,
-    [_WRITE]        sys_plan9_unimplemented,
+    [_WRITE]        sys_plan9_deprecated,
     [PIPE]          sys_plan9_unimplemented,
     [CREATE]        syscreate,
     [FD2PATH]       sysfd2path,
     [BRK_]          sysbrk,
     [REMOVE]        sysremove,
-    [_WSTAT]        sys_plan9_unimplemented,
-    [_FWSTAT]       sys_plan9_unimplemented,
+    [_WSTAT]        sys_plan9_deprecated,
+    [_FWSTAT]       sys_plan9_deprecated,
     [NOTIFY]        sys_plan9_unimplemented,
     [NOTED]         sys_plan9_unimplemented,
     [SEGATTACH]     sys_plan9_unimplemented,
@@ -297,7 +305,7 @@ syscall_handler * systab[] = {
     [SEGFLUSH]      sys_plan9_unimplemented,
     [RENDEZVOUS]    sys_plan9_unimplemented,
     [UNMOUNT]       sys_plan9_unimplemented,
-    [_WAIT]         sys_plan9_unimplemented,
+    [_WAIT]         sys_plan9_deprecated,
     [SEEK]          sysseek,
     [FVERSION]      sys_plan9_unimplemented,
     [ERRSTR]        syserrstr,
