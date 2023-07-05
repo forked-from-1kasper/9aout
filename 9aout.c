@@ -250,11 +250,21 @@ uint64_t sys_dup(uint64_t * rsp, greg_t * regs) {
     return (fd != -1) ? fd : seterrno();
 }
 
+uint64_t sys_chdir(uint64_t * rsp, greg_t * regs) {
+    char * path = (char*) *(++rsp);
+
+    #ifdef DEBUG
+        printf("CHDIR path = %s\n", path);
+    #endif
+
+    return (chdir(path) != -1) ? 0 : seterrno();
+}
+
 syscall_handler * systab[] = {
     [SYSR1]         sys_plan9_unimplemented,
     [_ERRSTR]       sys_errstr,
     [BIND]          sys_plan9_unimplemented,
-    [CHDIR]         sys_plan9_unimplemented,
+    [CHDIR]         sys_chdir,
     [CLOSE]         sysclose,
     [DUP]           sys_dup,
     [ALARM]         sys_plan9_unimplemented,
