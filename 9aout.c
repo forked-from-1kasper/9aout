@@ -42,7 +42,7 @@ uint64_t sys_plan9_deprecated(uint64_t * rsp, greg_t * regs) {
     return 0;
 }
 
-uint64_t sysexits(uint64_t * rsp, greg_t * regs) {
+uint64_t sys_exits(uint64_t * rsp, greg_t * regs) {
     char * buf = (char*) *(++rsp);
 
     #ifdef DEBUG
@@ -58,7 +58,7 @@ uint64_t sysexits(uint64_t * rsp, greg_t * regs) {
     exit(exitcode);
 }
 
-uint64_t syspread(uint64_t * rsp, greg_t * regs) {
+uint64_t sys_pread(uint64_t * rsp, greg_t * regs) {
     int fd = (int) *(++rsp);
     void * buf = (void*) *(++rsp);
     size_t len = (uint32_t) *(++rsp);
@@ -71,7 +71,7 @@ uint64_t syspread(uint64_t * rsp, greg_t * regs) {
     return (offset == -1) ? read(fd, buf, len) : pread(fd, buf, len, offset);
 }
 
-uint64_t syspwrite(uint64_t * rsp, greg_t * regs) {
+uint64_t sys_pwrite(uint64_t * rsp, greg_t * regs) {
     int fd = (int) *(++rsp);
     void * buf = (void*) *(++rsp);
     size_t len = (uint32_t) *(++rsp);
@@ -84,7 +84,7 @@ uint64_t syspwrite(uint64_t * rsp, greg_t * regs) {
     return (offset == -1) ? write(fd, buf, len) : pwrite(fd, buf, len, offset);
 }
 
-uint64_t sysbrk(uint64_t * rsp, greg_t * regs) {
+uint64_t sys_brk(uint64_t * rsp, greg_t * regs) {
     void * addr = (void*) *(++rsp);
 
     size_t size = addr - data.begin;
@@ -143,7 +143,7 @@ int seterrno() {
     }
 }
 
-uint64_t sysopen(uint64_t * rsp, greg_t * regs) {
+uint64_t sys_open(uint64_t * rsp, greg_t * regs) {
     char * file = (char*) *(++rsp);
     int32_t mode = (int32_t) *(++rsp);
 
@@ -157,7 +157,7 @@ uint64_t sysopen(uint64_t * rsp, greg_t * regs) {
     return (fd != -1) ? fd : seterrno();
 }
 
-uint64_t sysclose(uint64_t * rsp, greg_t * regs) {
+uint64_t sys_close(uint64_t * rsp, greg_t * regs) {
     int fd = (int) *(++rsp);
 
     #ifdef DEBUG
@@ -167,7 +167,7 @@ uint64_t sysclose(uint64_t * rsp, greg_t * regs) {
     return (close(fd) != -1) ? 0 : seterrno();
 }
 
-uint64_t sysseek(uint64_t * rsp, greg_t * regs) {
+uint64_t sys_seek(uint64_t * rsp, greg_t * regs) {
     off_t * retp = (off_t*) *(++rsp);
 
     int fd = (int) *(++rsp);
@@ -192,7 +192,7 @@ uint64_t sysseek(uint64_t * rsp, greg_t * regs) {
     return (retval != -1) ? 0 : seterrno();
 }
 
-uint64_t syscreate(uint64_t * rsp, greg_t * regs) {
+uint64_t sys_create(uint64_t * rsp, greg_t * regs) {
     char * file = (char*) *(++rsp);
     int32_t mode = (int32_t) *(++rsp);
     uint32_t perm = (uint32_t) *(++rsp);
@@ -207,12 +207,12 @@ uint64_t syscreate(uint64_t * rsp, greg_t * regs) {
     return (fd != -1) ? fd : seterrno();
 }
 
-uint64_t sysremove(uint64_t * rsp, greg_t * regs) {
+uint64_t sys_remove(uint64_t * rsp, greg_t * regs) {
     char * file = (char*) *(++rsp);
     return remove(file);
 }
 
-uint64_t sysfd2path(uint64_t * rsp, greg_t * regs) {
+uint64_t sys_fd2path(uint64_t * rsp, greg_t * regs) {
     int fd = (int) *(++rsp);
     char * buf = (char*) *(++rsp);
     size_t nbuf = (size_t) *(++rsp);
@@ -235,15 +235,12 @@ uint64_t generrstr(char *msg, size_t nbuf) {
     return 0;
 }
 
-uint64_t syserrstr(uint64_t * rsp, greg_t * regs) {
+uint64_t sys_errstr(uint64_t * rsp, greg_t * regs) {
     char * msg = (char*) *(++rsp);
     size_t len = (uint32_t) *(++rsp);
 
     return generrstr(msg, len);
 }
-
-uint64_t sys_errstr(uint64_t * rsp, greg_t * regs)
-{ return generrstr((char*) *(++rsp), 64); }
 
 uint64_t sys_dup(uint64_t * rsp, greg_t * regs) {
     int oldfd = (int32_t) *(++rsp);
@@ -273,17 +270,17 @@ syscall_handler * systab[] = {
     [_ERRSTR]       sys_plan9_deprecated,
     [BIND]          sys_plan9_unimplemented,
     [CHDIR]         sys_chdir,
-    [CLOSE]         sysclose,
+    [CLOSE]         sys_close,
     [DUP]           sys_dup,
     [ALARM]         sys_plan9_unimplemented,
     [EXEC]          sys_plan9_unimplemented,
-    [EXITS]         sysexits,
+    [EXITS]         sys_exits,
     [_FSESSION]     sys_plan9_deprecated,
     [FAUTH]         sys_plan9_unimplemented,
     [_FSTAT]        sys_plan9_deprecated,
     [SEGBRK]        sys_plan9_unimplemented,
     [MOUNT]         sys_plan9_unimplemented,
-    [OPEN]          sysopen,
+    [OPEN]          sys_open,
     [_READ]         sys_plan9_deprecated,
     [OSEEK]         sys_plan9_unimplemented,
     [SLEEP]         sys_plan9_unimplemented,
@@ -291,10 +288,10 @@ syscall_handler * systab[] = {
     [RFORK]         sys_plan9_unimplemented,
     [_WRITE]        sys_plan9_deprecated,
     [PIPE]          sys_plan9_unimplemented,
-    [CREATE]        syscreate,
-    [FD2PATH]       sysfd2path,
-    [BRK_]          sysbrk,
-    [REMOVE]        sysremove,
+    [CREATE]        sys_create,
+    [FD2PATH]       sys_fd2path,
+    [BRK_]          sys_brk,
+    [REMOVE]        sys_remove,
     [_WSTAT]        sys_plan9_deprecated,
     [_FWSTAT]       sys_plan9_deprecated,
     [NOTIFY]        sys_plan9_unimplemented,
@@ -306,15 +303,15 @@ syscall_handler * systab[] = {
     [RENDEZVOUS]    sys_plan9_unimplemented,
     [UNMOUNT]       sys_plan9_unimplemented,
     [_WAIT]         sys_plan9_deprecated,
-    [SEEK]          sysseek,
+    [SEEK]          sys_seek,
     [FVERSION]      sys_plan9_unimplemented,
-    [ERRSTR]        syserrstr,
+    [ERRSTR]        sys_errstr,
     [STAT]          sys_plan9_unimplemented,
     [FSTAT]         sys_plan9_unimplemented,
     [WSTAT]         sys_plan9_unimplemented,
     [FWSTAT]        sys_plan9_unimplemented,
-    [PREAD]         syspread,
-    [PWRITE]        syspwrite,
+    [PREAD]         sys_pread,
+    [PWRITE]        sys_pwrite,
     [AWAIT]         sys_plan9_unimplemented,
 };
 
