@@ -19,13 +19,26 @@
 #include <time.h>
 #include <elf.h>
 
+#include <linux/sched.h>
+#include <sys/syscall.h>
+#include <sched.h>
+
 #include "9aout.h"
 #include "errstr.h"
 #include "syscall.h"
 
 char errstr[ERRMAX];
 
-int fd; segment text, data = {0};
+int _fd = -1; segment _text, _data = {0};
+
+void nuke() {
+    if (_text.begin) munmap(_text.begin, _text.size);
+    if (_data.begin) munmap(_data.begin, _data.size);
+    if (_fd != -1) close(_fd);
+}
+
+void swap(int fd, segment text, segment data)
+{ _fd = fd; _text = text; _data = data; }
 
 uint64_t sys_plan9_unimplemented(uint64_t * rsp, greg_t * regs) {
     #ifdef DEBUG
@@ -52,11 +65,7 @@ uint64_t sys_exits(uint64_t * rsp, greg_t * regs) {
 
     int exitcode = (buf == NULL || buf[0] == '\0') ? 0 : -1;
 
-    munmap(text.begin, text.size);
-    munmap(data.begin, data.size);
-    close(fd);
-
-    exit(exitcode);
+    nuke(); exit(exitcode);
 }
 
 uint64_t sys_pread(uint64_t * rsp, greg_t * regs) {
@@ -88,12 +97,12 @@ uint64_t sys_pwrite(uint64_t * rsp, greg_t * regs) {
 uint64_t sys_brk(uint64_t * rsp, greg_t * regs) {
     void * addr = (void*) *(++rsp);
 
-    size_t size = addr - data.begin;
-    void * ptr  = mremap(data.begin, data.size, size, 0);
+    size_t size = addr - _data.begin;
+    void * ptr  = mremap(_data.begin, _data.size, size, 0);
 
     if (ptr == MAP_FAILED) return -1;
 
-    data.size = size; data.begin = ptr; return 0;
+    _data.size = size; _data.begin = ptr; return 0;
 }
 
 uint64_t seterror(char * err) {
@@ -128,21 +137,23 @@ int modechk(char * file, int32_t mode) {
     return 0;
 }
 
-int seterrno() {
-    switch (errno) {
-        case EACCES:       return seterror(Eperm);
-        case EEXIST:       return seterror(Eexist);
-        case ENOENT:       return seterror(Enonexist);
-        case ENAMETOOLONG: return seterror(Efilename);
-        case ENFILE:       return seterror(Enofd);
-        case EBADF:        return seterror(Edabf);
-        case EINTR:        return seterror(Eintr);
-        case EIO:          return seterror(Eio);
-        case ENOSPC:       return seterror(Enospc);
-        case EDQUOT:       return seterror(Edquot);
-        default:           return seterror(strerror(errno));
+char * geterror(int error) {
+    switch (error) {
+        case EACCES:       return Eperm;
+        case EEXIST:       return Eexist;
+        case ENOENT:       return Enonexist;
+        case ENAMETOOLONG: return Efilename;
+        case ENFILE:       return Enofd;
+        case EBADF:        return Edabf;
+        case EINTR:        return Eintr;
+        case EIO:          return Eio;
+        case ENOSPC:       return Enospc;
+        case EDQUOT:       return Edquot;
+        default:           return strerror(error);
     }
 }
+
+int seterrno() { return seterror(geterror(errno)); }
 
 uint64_t sys_open(uint64_t * rsp, greg_t * regs) {
     char * file = (char*) *(++rsp);
@@ -281,6 +292,65 @@ uint64_t sys_sleep(uint64_t * rsp, greg_t * regs) {
     return nanosleep(&time, NULL);
 }
 
+uint64_t sys_rfork(uint64_t * rsp, greg_t * regs) {
+    int flags = (int) *(++rsp);
+
+    #ifdef DEBUG
+        printf("RFORK flags = %d\n", flags);
+    #endif
+
+    if ((flags & (RFFDG|RFCFDG)) == (RFFDG|RFCFDG))
+        return seterror(Ebadarg);
+    if ((flags & (RFNAMEG|RFCNAMEG)) == (RFNAMEG|RFCNAMEG))
+        return seterror(Ebadarg);
+    if ((flags & (RFENVG|RFCENVG)) == (RFENVG|RFCENVG))
+        return seterror(Ebadarg);
+
+    if (!(flags & RFPROC)) return seterror("!RFPROC not implemented.");
+
+    if (flags & RFNAMEG)  return seterror("RFNAMEG not implemented.");
+    if (flags & RFENVG)   return seterror("RFENVG not implemented.");
+    if (flags & RFNOTEG)  return seterror("RFNOTEG not implemented.");
+    if (flags & RFMEM)    return seterror("RFMEM not implemented.");
+    if (flags & RFNOWAIT) return seterror("RFNOWAIT not implemented.");
+    if (flags & RFCNAMEG) return seterror("RFCNAMEG not implemented.");
+    if (flags & RFCENVG)  return seterror("RFCENVG not implemented.");
+    if (flags & RFCFDG)   return seterror("RFCFDG not implemented.");
+    if (flags & RFREND)   return seterror("RFREND not implemented.");
+    if (flags & RFNOMNT)  return seterror("RFNOMNT not implemented.");
+
+    struct clone_args params = {0};
+    if (!(flags & RFFDG)) params.flags |= CLONE_FILES;
+
+    return syscall(SYS_clone3, &params, sizeof(params));
+}
+
+int load(char *, int, char **);
+
+uint64_t sys_exec(uint64_t * rsp, greg_t * regs) {
+    char * filename = (char*) *(++rsp);
+
+    char ** argv = (char**) *(++rsp);
+
+    if (*argv == NULL) return seterror(Ebadarg);
+    int argc = 0; for (; argv[argc] != NULL; argc++);
+
+    #ifdef DEBUG
+        printf("EXEC filename = %s argc = %d \n", filename, argc);
+    #endif
+
+    char * filename1 = calloc(strlen(filename) + 1, sizeof(char)); strcpy(filename1, filename);
+
+    char ** argv1 = calloc(argc, sizeof(char));
+
+    for (size_t i = 0; i < argc; i++) {
+        argv1[i] = calloc(strlen(argv[i]) + 1, sizeof(char));
+        strcpy(argv1[i], argv[i]);
+    }
+
+    return seterror(geterror(load(filename1, argc, argv1)));
+}
+
 syscall_handler * systab[] = {
     [SYSR1]         sys_plan9_unimplemented,
     [_ERRSTR]       sys_plan9_deprecated,
@@ -289,7 +359,7 @@ syscall_handler * systab[] = {
     [CLOSE]         sys_close,
     [DUP]           sys_dup,
     [ALARM]         sys_plan9_unimplemented,
-    [EXEC]          sys_plan9_unimplemented,
+    [EXEC]          sys_exec,
     [EXITS]         sys_exits,
     [_FSESSION]     sys_plan9_deprecated,
     [FAUTH]         sys_plan9_unimplemented,
@@ -301,7 +371,7 @@ syscall_handler * systab[] = {
     [OSEEK]         sys_plan9_unimplemented,
     [SLEEP]         sys_sleep,
     [_STAT]         sys_plan9_deprecated,
-    [RFORK]         sys_plan9_unimplemented,
+    [RFORK]         sys_rfork,
     [_WRITE]        sys_plan9_deprecated,
     [PIPE]          sys_plan9_unimplemented,
     [CREATE]        sys_create,
@@ -331,7 +401,7 @@ syscall_handler * systab[] = {
     [AWAIT]         sys_plan9_unimplemented,
 };
 
-static uint8_t glob_sel = SYSCALL_DISPATCH_FILTER_ALLOW;
+static uint8_t selector = SYSCALL_DISPATCH_FILTER_ALLOW;
 
 static void handle_sigsys(int sig, siginfo_t *info, void *ucontext) {
     ucontext_t *context = (ucontext_t *) ucontext;
@@ -341,18 +411,64 @@ static void handle_sigsys(int sig, siginfo_t *info, void *ucontext) {
     uint8_t syscall = regs[REG_RBP];
 
     if (syscall > PWRITE || systab[syscall] == NULL)
-        printf("Bad system call\n");
+        printf("P9: bad system call\n");
     else regs[REG_RAX] = systab[syscall](rsp, regs);
 }
 
-int main(int argc, char * argv[]) {
-    if (argc < 2) {
-        printf("usage: %s [file] [option ...]\n", basename(argv[0]));
-        return -EINVAL;
+void sigsys(void) {
+    struct sigaction act = {0};
+    sigset_t mask; sigemptyset(&mask);
+
+    act.sa_sigaction = handle_sigsys;
+    act.sa_flags     = SA_SIGINFO ;//| SA_NODEFER;
+    act.sa_mask      = mask;
+
+    long ret = sigaction(SIGSYS, &act, NULL);
+}
+
+int init(void) {
+    sigsys();
+
+    Elf64_Phdr *phdrs = (Elf64_Phdr *) getauxval(AT_PHDR);
+    if (phdrs == NULL) {
+        printf("getauxval failed\n");
+        return -1;
     }
 
-    fd = open(argv[1], O_RDONLY);
-    header hdr; read(fd, &hdr, sizeof(header));
+    unsigned long e_phnum = getauxval(AT_PHNUM);
+    if (e_phnum == 0) {
+        fprintf(stderr, "getauxval failed\n");
+        return -1;
+    }
+
+    // https://github.com/meme/limbo/blob/main/main.c
+    for (uint32_t i = 0; i < e_phnum; i++) {
+        Elf64_Phdr phdr = phdrs[i];
+
+        if (phdr.p_type == PT_LOAD && phdr.p_flags & PF_X) {
+            if (prctl(PR_SET_SYSCALL_USER_DISPATCH, PR_SYS_DISPATCH_ON, phdr.p_vaddr, phdr.p_memsz, &selector)) {
+                fprintf(stderr, "Kernel does not support CONFIG_SYSCALL_USER_DISPATCH\n");
+                return -1;
+            }
+        }
+    }
+
+    selector = SYSCALL_DISPATCH_FILTER_BLOCK;
+
+    return 0;
+}
+
+int load(char * filename, int argc, char ** argv) {
+    sigset_t mask; sigemptyset(&mask); sigaddset(&mask, SIGSYS);
+    sigprocmask(SIG_UNBLOCK, &mask, NULL); // unblock SIGSYS
+
+    int fd = open(filename, O_RDONLY);
+    if (fd == -1) return errno;
+
+    header hdr; ssize_t readn = read(fd, &hdr, sizeof(header));
+    if (readn != sizeof(header)) return errno;
+
+    segment text, data = {0};
 
     hdr.magic    = be32toh(hdr.magic);
     hdr.text     = be32toh(hdr.text);
@@ -364,69 +480,34 @@ int main(int argc, char * argv[]) {
     hdr.pcsz     = be32toh(hdr.pcsz);
     hdr.entry    = be64toh(hdr.entry);
 
-    if (hdr.magic != S_MAGIC) return -ENOEXEC;
-    if (hdr.entry < UTZERO + sizeof(header)) return -ENOEXEC;
-
-    int si_code, si_errno; long ret;
-    struct sigaction act; sigset_t mask;
-
-    glob_sel = 0;
-    si_code  = 0;
-    si_errno = 0;
-
-    memset(&act, 0, sizeof(act));
-    sigemptyset(&mask);
-
-    act.sa_sigaction = handle_sigsys;
-    act.sa_flags     = SA_SIGINFO;
-    act.sa_mask      = mask;
-
-    ret = sigaction(SIGSYS, &act, NULL);
-
-    Elf64_Phdr *phdrs = (Elf64_Phdr *) getauxval(AT_PHDR);
-    if (phdrs == NULL) {
-        printf("getauxval failed\n");
-        return 1;
-    }
-
-    unsigned long e_phnum = getauxval(AT_PHNUM);
-    if (e_phnum == 0) {
-        fprintf(stderr, "getauxval failed\n");
-        return 1;
-    }
-
-    // https://github.com/meme/limbo/blob/main/main.c
-    for (uint32_t i = 0; i < e_phnum; i++) {
-        Elf64_Phdr phdr = phdrs[i];
-
-        if (phdr.p_type == PT_LOAD && phdr.p_flags & PF_X) {
-            if (prctl(PR_SET_SYSCALL_USER_DISPATCH, PR_SYS_DISPATCH_ON, phdr.p_vaddr, phdr.p_memsz, &glob_sel)) {
-                fprintf(stderr, "Kernel does not support CONFIG_SYSCALL_USER_DISPATCH\n");
-                return 1;
-            }
-        }
-    }
+    if (hdr.magic != S_MAGIC) return ENOEXEC;
+    if (hdr.entry < UTZERO + sizeof(header)) return ENOEXEC;
 
     text.size = sizeof(header) + hdr.text;
     data.size = hdr.data + hdr.bss;
 
     uint32_t offset = (text.size / (ALIGN + 1) + 1) * (ALIGN + 1);
 
+    nuke();
+
     text.begin = mmap((char*) UTZERO, text.size, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_FIXED, fd, 0);
     data.begin = mmap((char*) UTZERO + offset, data.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
 
-    if (text.begin == NULL || data.begin == NULL) return -ENOMEM;
+    swap(fd, text, data);
 
-    lseek(fd, text.size, SEEK_SET); read(fd, data.begin, hdr.data);
+    if (text.begin == NULL || data.begin == NULL) exit(ENOMEM);
+
+    lseek(fd, text.size, SEEK_SET);
+    read(fd, data.begin, hdr.data);
     memset(data.begin + hdr.data, 0, hdr.bss);
 
     uint64_t * rsp; asm volatile("mov %%rsp, %0" : "=r"(rsp));
     rsp -= TOS_SIZE; uint64_t * tos = rsp;
 
-    argc--; argv++; rsp -= argc; *(--rsp) = argc;
-    for (size_t i = 0; i < argc; i++) rsp[i + 1] = (uint64_t) argv[i];
+    rsp -= argc; *(--rsp) = argc;
 
-    glob_sel = SYSCALL_DISPATCH_FILTER_BLOCK;
+    for (size_t i = 0; i < argc; i++)
+        rsp[i + 1] = (uint64_t) argv[i];
 
     asm volatile(
         "mov %0, %%rax;"
@@ -436,4 +517,15 @@ int main(int argc, char * argv[]) {
     );
 
     __builtin_unreachable();
+}
+
+int main(int argc, char * argv[]) {
+    if (argc < 2) {
+        printf("usage: %s [file] [option ...]\n", basename(argv[0]));
+        return -EINVAL;
+    }
+
+    if (init()) return -1;
+
+    return load(argv[1], argc - 1, argv + 1);
 }
