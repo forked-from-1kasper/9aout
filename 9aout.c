@@ -420,7 +420,7 @@ void sigsys(void) {
     sigset_t mask; sigemptyset(&mask);
 
     act.sa_sigaction = handle_sigsys;
-    act.sa_flags     = SA_SIGINFO ;//| SA_NODEFER;
+    act.sa_flags     = SA_SIGINFO;
     act.sa_mask      = mask;
 
     long ret = sigaction(SIGSYS, &act, NULL);
