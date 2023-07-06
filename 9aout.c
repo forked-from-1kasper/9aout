@@ -330,25 +330,21 @@ int load(char *, int, char **);
 uint64_t sys_exec(uint64_t * rsp, greg_t * regs) {
     char * filename = (char*) *(++rsp);
 
-    char ** argv = (char**) *(++rsp);
+    char ** argv0 = (char**) *(++rsp);
 
-    if (*argv == NULL) return seterror(Ebadarg);
-    int argc = 0; for (; argv[argc] != NULL; argc++);
+    if (*argv0 == NULL) return seterror(Ebadarg);
+    int argc = 0; for (; argv0[argc] != NULL; argc++);
 
     #ifdef DEBUG
         printf("EXEC filename = %s argc = %d \n", filename, argc);
     #endif
 
-    char * filename1 = calloc(strlen(filename) + 1, sizeof(char)); strcpy(filename1, filename);
+    char ** argv = calloc(argc, sizeof(char));
 
-    char ** argv1 = calloc(argc, sizeof(char));
+    for (size_t i = 0; i < argc; i++)
+        argv[i] = strdup(argv0[i]);
 
-    for (size_t i = 0; i < argc; i++) {
-        argv1[i] = calloc(strlen(argv[i]) + 1, sizeof(char));
-        strcpy(argv1[i], argv[i]);
-    }
-
-    return seterror(geterror(load(filename1, argc, argv1)));
+    return seterror(geterror(load(strdup(filename), argc, argv)));
 }
 
 syscall_handler * systab[] = {
