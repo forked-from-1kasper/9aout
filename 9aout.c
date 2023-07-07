@@ -457,6 +457,7 @@ uint64_t sys_await(uint64_t * rsp, greg_t * regs) {
     uint64_t sys  = millisecs(usage.ru_stime);
     uint64_t real = timestamp() - data.timestamp;
 
+    // TODO: quote “'” to “''”
     int written = snprintf(buf, n, "%d %ld %ld %ld '%s'", pid, user, sys, real, data.exitmsg);
     munmap(data.exitmsg, ERRLEN * sizeof(char));
 
