@@ -543,7 +543,7 @@ void sigsys(void) {
 int init(void) {
     Elf64_Phdr *phdrs = (Elf64_Phdr *) getauxval(AT_PHDR);
     if (phdrs == NULL) {
-        printf("getauxval failed\n");
+        fprintf(stderr, "getauxval failed\n");
         return -1;
     }
 
