@@ -410,7 +410,7 @@ uint64_t sys_exec(uint64_t * rsp, greg_t * regs) {
 
     char ** argv0 = (char**) *(++rsp);
 
-    if (*argv0 == NULL) return seterror(Ebadarg);
+    if (argv0 == NULL || *argv0 == NULL) return seterror(Ebadarg);
     int argc = 0; for (; argv0[argc] != NULL; argc++);
 
     #ifdef DEBUG
@@ -420,7 +420,7 @@ uint64_t sys_exec(uint64_t * rsp, greg_t * regs) {
     // When filename/argv will be used in the new code, current code will
     // already be unloaded, as well as data segment, so we need to copy them
     char * filename = strdup(filename0);
-    char ** argv = calloc(argc, sizeof(char));
+    char ** argv = calloc(argc, sizeof(char*));
 
     for (size_t i = 0; i < argc; i++)
         argv[i] = strdup(argv0[i]);
@@ -622,10 +622,14 @@ int load(char * filename, int argc, char ** argv) {
     uint64_t * rsp; asm volatile("mov %%rsp, %0" : "=r"(rsp));
     rsp -= TOS_SIZE; uint64_t * tos = rsp;
 
-    rsp -= argc; *(--rsp) = argc;
+    rsp -= argc + 1; *(--rsp) = argc;
 
     for (size_t i = 0; i < argc; i++)
         rsp[i + 1] = (uint64_t) argv[i];
+
+    rsp[argc + 1] = 0;
+
+    // FIXME: “argv” leaks here
 
     asm volatile(
         "mov %0, %%rax;"
