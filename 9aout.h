@@ -1,5 +1,6 @@
-#ifndef NINEAOUT_H
-#define NINEAOUT_H
+#pragma once
+
+
 
 /* open & create */
 #define OREAD   0      /* open for read */
@@ -33,8 +34,7 @@ enum
 
 typedef struct header header;
 
-struct header
-{
+struct header {
     uint32_t magic;    /* magic number */
     uint32_t text;     /* size of text segment */
     uint32_t data;     /* size of initialized text */
@@ -48,10 +48,24 @@ struct header
 
 typedef struct segment segment;
 
-struct segment
-{
-    void * begin;
+struct segment {
+    void *   begin;
     uint32_t size;
+};
+
+typedef struct pdata pdata;
+
+struct pdata {
+    uint64_t timestamp;
+    char *   exitmsg;
+};
+
+typedef struct List List;
+
+struct List {
+    int    pid;
+    pdata  data;
+    List * next;
 };
 
 #define HDR_MAGIC 0x00008000 /* header expansion */
@@ -96,5 +110,3 @@ struct segment
 #define USTKSIZE  (16*MiB)                 /* size of user stack */
 
 typedef uint64_t syscall_handler(uint64_t *, greg_t *);
-
-#endif

@@ -19,26 +19,80 @@
 #include <time.h>
 #include <elf.h>
 
+#include <sys/resource.h>
 #include <linux/sched.h>
 #include <sys/syscall.h>
+#include <sys/wait.h>
 #include <sched.h>
 
 #include "9aout.h"
 #include "errstr.h"
 #include "syscall.h"
 
-char errstr[ERRMAX];
+uint64_t millisecs(struct timeval time)
+{ return time.tv_sec * 1000L + time.tv_usec / 1000L; }
 
-int _fd = -1; segment _text, _data = {0};
+uint64_t timestamp()
+{
+    struct timespec spec; clock_gettime(CLOCK_MONOTONIC, &spec);
+    return spec.tv_sec * 1000L + spec.tv_nsec / 1e+6L;
+}
+
+static char errstr[ERRMAX] = {0};
+
+char * exitmsg = NULL;
+
+int _fd = -1; segment _text, _data = {0}; List * family = NULL;
 
 void nuke() {
     if (_text.begin) munmap(_text.begin, _text.size);
     if (_data.begin) munmap(_data.begin, _data.size);
-    if (_fd != -1) close(_fd);
+    if (_fd != -1)   close(_fd);
 }
 
 void swap(int fd, segment text, segment data)
 { _fd = fd; _text = text; _data = data; }
+
+void attach_child(int pid, char * msg) {
+    List * node = malloc(sizeof(List));
+
+    node->pid            = pid;
+    node->next           = family;
+    node->data.exitmsg   = msg;
+    node->data.timestamp = timestamp();
+
+    family = node;
+}
+
+pdata detach_child(int pid) {
+    pdata retval = {0};
+
+    List * prev = NULL, * cur = family;
+
+    while (cur != NULL) {
+        if (cur->pid == pid) {
+            retval = cur->data;
+
+            if (prev) prev->next = cur->next;
+            else family = cur->next;
+
+            free(cur);
+
+            return retval;
+        } else { prev = cur; cur = cur->next; }
+    }
+
+    return retval;
+}
+
+void free_list(List * xs) {
+    while (xs != NULL) {
+        List * next = xs->next;
+        free(xs); xs = next;
+    }
+}
+
+void detach_everything() { free_list(family); family = NULL; }
 
 uint64_t sys_plan9_unimplemented(uint64_t * rsp, greg_t * regs) {
     #ifdef DEBUG
@@ -61,11 +115,14 @@ uint64_t sys_exits(uint64_t * rsp, greg_t * regs) {
 
     #ifdef DEBUG
         if (buf != NULL) printf("exits: %s\n", buf);
+        else printf("exits\n");
     #endif
 
     int exitcode = (buf == NULL || buf[0] == '\0') ? 0 : -1;
 
-    nuke(); exit(exitcode);
+    if (exitmsg && buf) strncpy(exitmsg, buf, ERRLEN);
+
+    detach_everything(); nuke(); exit(exitcode);
 }
 
 uint64_t sys_pread(uint64_t * rsp, greg_t * regs) {
@@ -292,6 +349,8 @@ uint64_t sys_sleep(uint64_t * rsp, greg_t * regs) {
     return nanosleep(&time, NULL);
 }
 
+int init(void);
+
 uint64_t sys_rfork(uint64_t * rsp, greg_t * regs) {
     int flags = (int) *(++rsp);
 
@@ -316,19 +375,38 @@ uint64_t sys_rfork(uint64_t * rsp, greg_t * regs) {
     if (flags & RFCNAMEG) return seterror("RFCNAMEG not implemented.");
     if (flags & RFCENVG)  return seterror("RFCENVG not implemented.");
     if (flags & RFCFDG)   return seterror("RFCFDG not implemented.");
-    if (flags & RFREND)   return seterror("RFREND not implemented.");
+    //if (flags & RFREND)   return seterror("RFREND not implemented.");
     if (flags & RFNOMNT)  return seterror("RFNOMNT not implemented.");
 
     struct clone_args params = {0};
     if (!(flags & RFFDG)) params.flags |= CLONE_FILES;
 
-    return syscall(SYS_clone3, &params, sizeof(params));
+    params.exit_signal = SIGCHLD;
+
+    char * cexitmsg = NULL;
+
+    if (flags & RFPROC) {
+        cexitmsg = mmap(NULL, ERRLEN * sizeof(char), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        memset(cexitmsg, 0, ERRLEN * sizeof(char));
+    }
+
+    int pid = syscall(SYS_clone3, &params, sizeof(params));
+
+    if (flags & RFPROC) {
+        // https://man7.org/linux/man-pages/man2/prctl.2.html
+        // The setting (PR_SET_SYSCALL_USER_DISPATCH) is not preserved
+        // across fork(2), clone(2), or execve(2).
+        if (pid == 0) { init(); detach_everything(); exitmsg = cexitmsg; }
+        else attach_child(pid, cexitmsg);
+    }
+
+    return pid;
 }
 
 int load(char *, int, char **);
 
 uint64_t sys_exec(uint64_t * rsp, greg_t * regs) {
-    char * filename = (char*) *(++rsp);
+    char * filename0 = (char*) *(++rsp);
 
     char ** argv0 = (char**) *(++rsp);
 
@@ -336,15 +414,53 @@ uint64_t sys_exec(uint64_t * rsp, greg_t * regs) {
     int argc = 0; for (; argv0[argc] != NULL; argc++);
 
     #ifdef DEBUG
-        printf("EXEC filename = %s argc = %d \n", filename, argc);
+        printf("EXEC filename = %s argc = %d\n", filename0, argc);
     #endif
 
+    // When filename/argv will be used in the new code, current code will
+    // already be unloaded, as well as data segment, so we need to copy them
+    char * filename = strdup(filename0);
     char ** argv = calloc(argc, sizeof(char));
 
     for (size_t i = 0; i < argc; i++)
         argv[i] = strdup(argv0[i]);
 
-    return seterror(geterror(load(strdup(filename), argc, argv)));
+    int error = load(filename, argc, argv);
+
+    // Code below will be executed only if something in “load” goes wrong
+    free(filename);
+
+    for (size_t i = 0; i < argc; i++)
+        free(argv[i]);
+
+    free(argv);
+
+    return seterror(geterror(error));
+}
+
+uint64_t sys_await(uint64_t * rsp, greg_t * regs) {
+    char * buf = (char*) *(++rsp);
+    int n = (int) *(++rsp);
+
+    #ifdef DEBUG
+        printf("AWAIT buf = %p n = %d\n", buf, n);
+    #endif
+
+    struct rusage usage; int wstatus;
+    int pid = wait3(&wstatus, __WALL, &usage);
+
+    if (pid == -1) return seterrno();
+
+    pdata data = detach_child(pid);
+
+    uint64_t user = millisecs(usage.ru_utime);
+    uint64_t sys  = millisecs(usage.ru_stime);
+    uint64_t real = timestamp() - data.timestamp;
+
+    int written = snprintf(buf, n, "%d %ld %ld %ld '%s'", pid, user, sys, real, data.exitmsg);
+    munmap(data.exitmsg, ERRLEN * sizeof(char));
+
+    return written;
 }
 
 syscall_handler * systab[] = {
@@ -394,7 +510,7 @@ syscall_handler * systab[] = {
     [FWSTAT]        sys_plan9_unimplemented,
     [PREAD]         sys_pread,
     [PWRITE]        sys_pwrite,
-    [AWAIT]         sys_plan9_unimplemented,
+    [AWAIT]         sys_await,
 };
 
 static uint8_t selector = SYSCALL_DISPATCH_FILTER_ALLOW;
@@ -403,6 +519,8 @@ static void handle_sigsys(int sig, siginfo_t *info, void *ucontext) {
     ucontext_t *context = (ucontext_t *) ucontext;
     greg_t *regs = context->uc_mcontext.gregs;
 
+    // Plan 9 (amd64) passes syscall number through RBP,
+    // so “info->si_syscall” would contain garbage.
     uint64_t * rsp = (uint64_t*) regs[REG_RSP];
     uint8_t syscall = regs[REG_RBP];
 
@@ -423,8 +541,6 @@ void sigsys(void) {
 }
 
 int init(void) {
-    sigsys();
-
     Elf64_Phdr *phdrs = (Elf64_Phdr *) getauxval(AT_PHDR);
     if (phdrs == NULL) {
         printf("getauxval failed\n");
@@ -455,9 +571,6 @@ int init(void) {
 }
 
 int load(char * filename, int argc, char ** argv) {
-    sigset_t mask; sigemptyset(&mask); sigaddset(&mask, SIGSYS);
-    sigprocmask(SIG_UNBLOCK, &mask, NULL); // unblock SIGSYS
-
     int fd = open(filename, O_RDONLY);
     if (fd == -1) return errno;
 
@@ -484,7 +597,16 @@ int load(char * filename, int argc, char ** argv) {
 
     uint32_t offset = (text.size / (ALIGN + 1) + 1) * (ALIGN + 1);
 
-    nuke();
+    nuke(); // Point of no return (any “return” below will result in crash, since it will eventually return to nowhere)
+
+    // In case when “load” was called by “exec” (Plan 9’s) syscall, “handle_sigsys” will not return
+    // and SIGSYS will stay blocked, so the next syscall, according to the behaviour of “sigaction”,
+    // will cause the program to crash with SIGSYS; hence we have to unblock it manually.
+
+    // https://man7.org/linux/man-pages/man2/sigprocmask.2.html
+    // It is permissible to attempt to unblock a signal which is not blocked.
+    sigset_t mask; sigemptyset(&mask); sigaddset(&mask, SIGSYS);
+    sigprocmask(SIG_UNBLOCK, &mask, NULL);
 
     text.begin = mmap((char*) UTZERO, text.size, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_FIXED, fd, 0);
     data.begin = mmap((char*) UTZERO + offset, data.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
@@ -521,7 +643,6 @@ int main(int argc, char * argv[]) {
         return -EINVAL;
     }
 
-    if (init()) return -1;
-
+    sigsys(); if (init()) return -1;
     return load(argv[1], argc - 1, argv + 1);
 }
