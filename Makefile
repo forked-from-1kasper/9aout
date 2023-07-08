@@ -1,20 +1,34 @@
-CFILES  = errstr.c 9aout.c
-BINNAME = 9aout
-CFLAGS  = -static -fomit-frame-pointer -Wl,-Ttext-segment,0x10000000
+CC         = gcc
+SOURCEDIR  = source
+INCLUDEDIR = include
+BINNAME    = 9aout
+LDFLAGS    = -static -Wl,-Ttext-segment,0x10000000
+CFLAGS     = -fomit-frame-pointer -I$(INCLUDEDIR)
 
-all: debug
+CFILES := $(shell find $(SOURCEDIR) -name '*.c')
+DFILES := $(CFILES:%.c=%.d)
+OFILES := $(foreach filepath,$(CFILES),$(notdir $(filepath:%.c=%.o)))
 
-release:
-	gcc $(CFLAGS) $(CFILES) -o $(BINNAME)
+ifdef DEBUG
+	CFLAGS += -g -DDEBUG
+endif
 
-debug:
-	gcc -DDEBUG -g $(CFLAGS) $(CFILES) -o $(BINNAME)
+all: $(BINNAME)
+
+$(BINNAME): $(OFILES)
+	$(CC) $(LDFLAGS) $(OFILES) -o $(BINNAME)
+
+%.d: %.c
+	$(CC) -I$(INCLUDEDIR) -MM $< > $@
+	echo "\\t$(CC) $(CFLAGS) -c $< -o $(notdir $(<:%.c=%.o))" >> $@
 
 clean:
-	rm -f 9aout
+	rm -f $(BINNAME) $(OFILES) $(DFILES)
 
-install-binfmt: release
-	sudo ./scripts/install-binfmt.sh
+install-binfmt: $(BINNAME)
+	./scripts/install-binfmt.sh
 
 uninstall-binfmt:
-	sudo ./scripts/uninstall-binfmt.sh
+	./scripts/uninstall-binfmt.sh
+
+include $(DFILES)

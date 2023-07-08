@@ -25,9 +25,9 @@
 #include <sys/wait.h>
 #include <sched.h>
 
-#include "9aout.h"
-#include "errstr.h"
-#include "syscall.h"
+#include <9aout.h>
+#include <errstr.h>
+#include <syscall.h>
 
 uint64_t millisecs(struct timeval time)
 { return time.tv_sec * 1000L + time.tv_usec / 1000L; }

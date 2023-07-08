@@ -1,5 +1,4 @@
-#ifndef ERRSTR_H
-#define ERRSTR_H
+#pragma once
 
 extern char Eperm[];
 extern char Eexist[];
@@ -12,5 +11,3 @@ extern char Edabf[];
 extern char Eintr[];
 extern char Enospc[];
 extern char Edquot[];
-
-#endif

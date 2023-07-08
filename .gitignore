@@ -1,3 +1,5 @@
 9aout
 *.6
 *.o
+*.d
+.depend

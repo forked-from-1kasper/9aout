@@ -1,5 +1,4 @@
-#ifndef SYSCALL_H
-#define SYSCALL_H
+#pragma once
 
 #define SYSR1           0
 #define _ERRSTR         1
@@ -53,5 +52,3 @@
 #define PWRITE          51
 #define TSEMACQUIRE     52
 #define _NSEC           53
-
-#endif

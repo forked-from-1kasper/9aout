@@ -1,7 +1,5 @@
 #pragma once
 
-
-
 /* open & create */
 #define OREAD   0      /* open for read */
 #define OWRITE  1      /* write */
