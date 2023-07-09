@@ -7,6 +7,6 @@
 typedef uint64_t syscall_handler(uint64_t *, greg_t *);
 typedef void (*sighandler)(int, siginfo_t *, void *);
 
-int  load(char *, int, char **);
-void sigsys(sighandler);
-int  init(void);
+int load(char *, int, char **);
+int sigsys(sighandler);
+int init(void);

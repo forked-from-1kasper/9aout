@@ -84,6 +84,8 @@ int main(int argc, char * argv[]) {
         return -EINVAL;
     }
 
-    sigsys(handle_sigsys); if (init()) return -1;
+    if (sigsys(handle_sigsys)) return -1;
+    if (init()) return -1;
+
     return load(argv[1], argc - 1, argv + 1);
 }

@@ -18,7 +18,7 @@
 
 static uint8_t selector = SYSCALL_DISPATCH_FILTER_ALLOW;
 
-void sigsys(sighandler func) {
+int sigsys(sighandler func) {
     struct sigaction act = {0};
     sigset_t mask; sigemptyset(&mask);
 
@@ -26,7 +26,7 @@ void sigsys(sighandler func) {
     act.sa_flags     = SA_SIGINFO;
     act.sa_mask      = mask;
 
-    long ret = sigaction(SIGSYS, &act, NULL);
+    return sigaction(SIGSYS, &act, NULL);
 }
 
 int init(void) {

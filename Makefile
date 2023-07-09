@@ -3,7 +3,7 @@ SOURCEDIR  = source
 INCLUDEDIR = include
 BINNAME    = 9aout
 LDFLAGS    = -static -Wl,-Ttext-segment,0x10000000
-CFLAGS     = -fomit-frame-pointer -I$(INCLUDEDIR)
+CFLAGS     = -Wall -Wno-misleading-indentation -fomit-frame-pointer -I$(INCLUDEDIR)
 
 CFILES := $(shell find $(SOURCEDIR) -name '*.c' | sort -n)
 DFILES := $(CFILES:%.c=%.d)

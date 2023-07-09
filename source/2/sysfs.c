@@ -23,7 +23,7 @@ static int plan9mode(int32_t mode) {
 }
 
 static int modechk(char * file, int32_t mode) {
-    if ((mode & 0x11) == OEXEC)
+    if ((mode & 0b11) == OEXEC)
         if (access(file, X_OK))
             return seterror(Eperm);
 
