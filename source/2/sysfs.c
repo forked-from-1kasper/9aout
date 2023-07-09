@@ -2,7 +2,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 
-#include <sysfs.h>
+#include <plan9/sysfs.h>
 #include <error.h>
 
 int plan9mode(int32_t mode) {

@@ -2,8 +2,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#include <9aout.h>
 #include <shared.h>
+#include <9aout.h>
 
 List * family = NULL;
 

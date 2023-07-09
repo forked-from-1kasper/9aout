@@ -31,7 +31,7 @@ enum
     RFNOMNT  = (1 << 14)
 };
 
-#define ERRLEN  64 /* max length of string passed by Exits */
+#define ERRLEN 64 /* max length of string passed by Exits */
 
 typedef struct header header;
 

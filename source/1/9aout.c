@@ -4,15 +4,15 @@
 #include <stdio.h>
 #include <errno.h>
 
-#include <syscall.h>
 #include <bootstrap.h>
 #include <shared.h>
-#include <common.h>
 #include <error.h>
 #include <9aout.h>
 
-#include <sysproc.h>
-#include <sysfs.h>
+#include <plan9/sysproc.h>
+#include <plan9/syscall.h>
+#include <plan9/common.h>
+#include <plan9/sysfs.h>
 
 syscall_handler * systab[] = {
     [SYSR1]         sys_plan9_unimplemented,

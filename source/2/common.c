@@ -1,4 +1,4 @@
-#include <common.h>
+#include <plan9/common.h>
 
 uint64_t sys_plan9_unimplemented(uint64_t * rsp, greg_t * regs) {
     #ifdef DEBUG
