@@ -274,7 +274,7 @@ uint64_t sys_stat(uint64_t * rsp, greg_t * regs) {
     int nedir = (int) *(++rsp);
 
     #ifdef DEBUG
-        printf("FSTAT filepath = %s edir = %p nedir = %d\n", filepath, edir, nedir);
+        printf("STAT filepath = %s edir = %p nedir = %d\n", filepath, edir, nedir);
     #endif
 
     struct stat sbuf = {0}; char buf[PATH_MAX + 1];
