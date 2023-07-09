@@ -3,7 +3,27 @@
 #include <stdint.h>
 #include <time.h>
 
-#include <9aout.h>
+typedef struct segment segment;
+
+struct segment {
+    void *   begin;
+    uint32_t size;
+};
+
+typedef struct pdata pdata;
+
+struct pdata {
+    uint64_t timestamp;
+    char *   exitmsg;
+};
+
+typedef struct List List;
+
+struct List {
+    int    pid;
+    pdata  data;
+    List * next;
+};
 
 extern List * family;
 

@@ -13,7 +13,6 @@
 #include <stdio.h>
 
 #include <plan9/sysproc.h>
-#include <bootstrap.h>
 #include <shared.h>
 
 uint64_t sys_sleep(uint64_t * rsp, greg_t * regs) {

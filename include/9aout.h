@@ -1,36 +1,6 @@
 #pragma once
 
-#include <ucontext.h>
 #include <stdint.h>
-
-/* open & create */
-#define OREAD   0      /* open for read */
-#define OWRITE  1      /* write */
-#define ORDWR   2      /* read and write */
-#define OEXEC   3      /* execute, == read but check execute permission */
-#define OTRUNC  16     /* or'ed in (except for exec), truncate file first */
-#define OCEXEC  32     /* or'ed in (per file descriptor), close on exec */
-#define ORCLOSE 64     /* or'ed in, remove on close */
-#define OEXCL   0x1000 /* or'ed in, exclusive create */
-
-/* rfork */
-enum
-{
-    RFNAMEG  = (1 << 0),
-    RFENVG   = (1 << 1),
-    RFFDG    = (1 << 2),
-    RFNOTEG  = (1 << 3),
-    RFPROC   = (1 << 4),
-    RFMEM    = (1 << 5),
-    RFNOWAIT = (1 << 6),
-    RFCNAMEG = (1 << 10),
-    RFCENVG  = (1 << 11),
-    RFCFDG   = (1 << 12),
-    RFREND   = (1 << 13),
-    RFNOMNT  = (1 << 14)
-};
-
-#define ERRLEN 64 /* max length of string passed by Exits */
 
 typedef struct header header;
 
@@ -44,28 +14,6 @@ struct header {
     uint32_t spsz;     /* size of pc/sp offset table */
     uint32_t pcsz;     /* size of pc/line number table */
     uint64_t entry;    /* entry point */
-};
-
-typedef struct segment segment;
-
-struct segment {
-    void *   begin;
-    uint32_t size;
-};
-
-typedef struct pdata pdata;
-
-struct pdata {
-    uint64_t timestamp;
-    char *   exitmsg;
-};
-
-typedef struct List List;
-
-struct List {
-    int    pid;
-    pdata  data;
-    List * next;
 };
 
 #define HDR_MAGIC 0x00008000 /* header expansion */
@@ -108,5 +56,3 @@ struct List {
 #define UADDRMASK (0x00007fffffffffffull)  /* canonical address mask */
 #define USTKTOP   (0x00007ffffffff000ull)  /* top of stack */
 #define USTKSIZE  (16*MiB)                 /* size of user stack */
-
-typedef uint64_t syscall_handler(uint64_t *, greg_t *);
