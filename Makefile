@@ -5,7 +5,7 @@ BINNAME    = 9aout
 LDFLAGS    = -static -Wl,-Ttext-segment,0x10000000
 CFLAGS     = -fomit-frame-pointer -I$(INCLUDEDIR)
 
-CFILES := $(shell find $(SOURCEDIR) -name '*.c')
+CFILES := $(shell find $(SOURCEDIR) -name '*.c' | sort -n)
 DFILES := $(CFILES:%.c=%.d)
 OFILES := $(foreach filepath,$(CFILES),$(notdir $(filepath:%.c=%.o)))
 

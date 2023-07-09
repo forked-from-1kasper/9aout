@@ -1,5 +1,9 @@
 #pragma once
 
+#include <ucontext.h>
+#include <stdint.h>
+#include <stddef.h>
+
 /* open & create */
 #define OREAD   0      /* open for read */
 #define OWRITE  1      /* write */
@@ -27,7 +31,6 @@ enum
     RFNOMNT  = (1 << 14)
 };
 
-#define ERRMAX 128 /* max length of error string */
 #define ERRLEN  64 /* max length of string passed by Exits */
 
 typedef struct header header;

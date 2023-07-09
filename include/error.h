@@ -1,5 +1,14 @@
 #pragma once
 
+#include <stdint.h>
+
+#define ERRMAX 128 /* max length of error string */
+
+extern char errstr[];
+char * geterror(int);
+uint64_t seterror(char *);
+int seterrno(void);
+
 extern char Eperm[];
 extern char Eexist[];
 extern char Enonexist[];
