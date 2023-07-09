@@ -5,7 +5,7 @@
 #include <plan9/sysfs.h>
 #include <error.h>
 
-int plan9mode(int32_t mode) {
+static int plan9mode(int32_t mode) {
     int retval = 0;
 
     switch (mode & 0x11) {
@@ -22,7 +22,7 @@ int plan9mode(int32_t mode) {
     return retval;
 }
 
-int modechk(char * file, int32_t mode) {
+static int modechk(char * file, int32_t mode) {
     if ((mode & 0x11) == OEXEC)
         if (access(file, X_OK))
             return seterror(Eperm);

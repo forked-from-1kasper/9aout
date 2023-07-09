@@ -2,7 +2,6 @@
 
 #include <ucontext.h>
 #include <stdint.h>
-#include <stddef.h>
 
 /* open & create */
 #define OREAD   0      /* open for read */
