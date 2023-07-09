@@ -15,7 +15,7 @@
 #include <plan9/sysfs.h>
 
 syscall_handler * systab[] = {
-    [SYSR1]         sys_plan9_unimplemented,
+    [SYSR1]         sysr1,
     [_ERRSTR]       sys_plan9_deprecated,
     [BIND]          sys_plan9_unimplemented,
     [CHDIR]         sys_chdir,
@@ -55,8 +55,8 @@ syscall_handler * systab[] = {
     [SEEK]          sys_seek,
     [FVERSION]      sys_plan9_unimplemented,
     [ERRSTR]        sys_errstr,
-    [STAT]          sys_plan9_unimplemented,
-    [FSTAT]         sys_plan9_unimplemented,
+    [STAT]          sys_stat,
+    [FSTAT]         sys_fstat,
     [WSTAT]         sys_plan9_unimplemented,
     [FWSTAT]        sys_plan9_unimplemented,
     [PREAD]         sys_pread,
@@ -85,7 +85,8 @@ int main(int argc, char * argv[]) {
     }
 
     if (sigsys(handle_sigsys)) return -1;
-    if (init()) return -1;
+    if (elfinit()) return -1;
+    if (sudinit()) return -1;
 
     return load(argv[1], argc - 1, argv + 1);
 }

@@ -20,3 +20,8 @@ uint64_t sys_plan9_deprecated(uint64_t * rsp, greg_t * regs) {
 
     return 0;
 }
+
+uint64_t sysr1(uint64_t * rsp, greg_t * regs) {
+    // TODO: return true if current user is eve
+    return 0;
+}

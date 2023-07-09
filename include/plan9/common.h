@@ -4,3 +4,4 @@
 
 syscall_handler sys_plan9_unimplemented;
 syscall_handler sys_plan9_deprecated;
+syscall_handler sysr1;

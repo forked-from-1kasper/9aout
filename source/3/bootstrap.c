@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 
 #include <stdio.h>
 
@@ -11,10 +12,14 @@
 #include <endian.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <link.h>
 
 #include <bootstrap.h>
 #include <shared.h>
 #include <aout.h>
+
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
 
 static uint8_t selector = SYSCALL_DISPATCH_FILTER_ALLOW;
 
@@ -29,34 +34,39 @@ int sigsys(sighandler func) {
     return sigaction(SIGSYS, &act, NULL);
 }
 
-int init(void) {
-    Elf64_Phdr *phdrs = (Elf64_Phdr *) getauxval(AT_PHDR);
-    if (phdrs == NULL) {
-        fprintf(stderr, "getauxval failed\n");
-        return -1;
-    }
+static Region region;
 
-    unsigned long e_phnum = getauxval(AT_PHNUM);
-    if (e_phnum == 0) {
-        fprintf(stderr, "getauxval failed\n");
-        return -1;
-    }
+static int lookphdr(struct dl_phdr_info * info, size_t size, void * data) {
+    for (size_t i = 0; i < info->dlpi_phnum; i++) {
+        Elf64_Phdr phdr = info->dlpi_phdr[i];
 
-    // https://github.com/meme/limbo/blob/main/main.c
-    for (uint32_t i = 0; i < e_phnum; i++) {
-        Elf64_Phdr phdr = phdrs[i];
+        if (phdr.p_flags & PF_X) {
+            uint64_t addr = info->dlpi_addr + phdr.p_vaddr;
 
-        if (phdr.p_type == PT_LOAD && phdr.p_flags & PF_X) {
-            if (prctl(PR_SET_SYSCALL_USER_DISPATCH, PR_SYS_DISPATCH_ON, phdr.p_vaddr, phdr.p_memsz, &selector)) {
-                fprintf(stderr, "Kernel does not support CONFIG_SYSCALL_USER_DISPATCH\n");
-                return -1;
-            }
+            region.begin = MIN(region.begin, addr);
+            region.end   = MAX(region.end,   addr + phdr.p_memsz);
         }
     }
 
-    selector = SYSCALL_DISPATCH_FILTER_BLOCK;
-
     return 0;
+}
+
+int elfinit(void) {
+    region.begin = -1L; region.end = +0L;
+    return dl_iterate_phdr(lookphdr, NULL);
+}
+
+int sudinit(void) {
+    // https://github.com/torvalds/linux/blob/master/kernel/entry/syscall_user_dispatch.c
+    // It looks like that there can be *only one* [offset; offset + len) region per thread,
+    // so we select one (very) large region containing everything (program text + all dynamic libraries).
+
+    if (prctl(PR_SET_SYSCALL_USER_DISPATCH, PR_SYS_DISPATCH_ON, region.begin, 1 + region.end - region.begin, &selector)) {
+        fprintf(stderr, "Kernel does not support CONFIG_SYSCALL_USER_DISPATCH\n");
+        return -1;
+    }
+
+    selector = SYSCALL_DISPATCH_FILTER_BLOCK; return 0;
 }
 
 int load(char * filename, int argc, char ** argv) {

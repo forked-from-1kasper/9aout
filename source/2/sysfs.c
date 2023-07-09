@@ -1,9 +1,20 @@
+#include <linux/limits.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #include <unistd.h>
+#include <string.h>
+#include <libgen.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <pwd.h>
+#include <grp.h>
 
 #include <plan9/sysfs.h>
 #include <error.h>
+
+#define htole8(x) (x)
 
 static int plan9mode(int32_t mode) {
     int retval = 0;
@@ -127,16 +138,21 @@ uint64_t sys_seek(uint64_t * rsp, greg_t * regs) {
     return (retval != -1) ? 0 : seterrno();
 }
 
+int fd2path(int fd, char * buf, size_t nbuf) {
+    char linkname[26] = {0};
+
+    sprintf(linkname, "/proc/self/fd/%d", fd);
+    return readlink(linkname, buf, nbuf);
+}
+
 uint64_t sys_fd2path(uint64_t * rsp, greg_t * regs) {
     int fd = (int) *(++rsp);
     char * buf = (char*) *(++rsp);
     size_t nbuf = (size_t) *(++rsp);
 
-    char filename[255] = {0};
-    sprintf(filename, "/proc/self/fd/%d", fd);
-    readlink(filename, buf, nbuf);
-
-    return 0;
+    if (fd2path(fd, buf, nbuf) == -1)
+        return seterrno();
+    else return 0;
 }
 
 uint64_t sys_dup(uint64_t * rsp, greg_t * regs) {
@@ -153,11 +169,136 @@ uint64_t sys_dup(uint64_t * rsp, greg_t * regs) {
 }
 
 uint64_t sys_chdir(uint64_t * rsp, greg_t * regs) {
-    char * path = (char*) *(++rsp);
+    char * filepath = (char*) *(++rsp);
 
     #ifdef DEBUG
-        printf("CHDIR path = %s\n", path);
+        printf("CHDIR filepath = %s\n", filepath);
     #endif
 
-    return (chdir(path) != -1) ? 0 : seterrno();
+    return (chdir(filepath) != -1) ? 0 : seterrno();
+}
+
+typedef struct Qid Qid;
+
+struct Qid {
+    uint8_t  type;
+    uint32_t vers;
+    uint64_t path;
+} __attribute__((__packed__));
+
+typedef struct Stat Stat;
+
+struct Stat {
+    uint16_t type;
+    uint32_t dev;
+    Qid      qid;
+    uint32_t mode;
+    uint32_t atime;
+    uint32_t mtime;
+    uint64_t length;
+} __attribute__((__packed__));
+
+void plan9stat(const struct stat * inbuf, Stat * outbuf) {
+    outbuf->type     = 'M';
+    outbuf->dev      = 0;
+    outbuf->qid.type = 0;
+    outbuf->qid.vers = inbuf->st_mtime + inbuf->st_ctime;
+    outbuf->qid.path = inbuf->st_ino;
+    outbuf->mode     = inbuf->st_mode & 0777;
+    outbuf->atime    = inbuf->st_atime;
+    outbuf->mtime    = inbuf->st_mtime;
+    outbuf->length   = inbuf->st_size;
+
+    if (S_ISDIR(inbuf->st_mode)) { outbuf->length = 0; outbuf->mode |= DMDIR; outbuf->qid.type = QTDIR; }
+}
+
+char * write16(char * chan, uint16_t value)
+{ *((uint16_t*) chan) = htole16(value); return chan + sizeof(uint16_t); }
+
+char * writenstr(char * chan, const char * buf, size_t len) {
+    chan = write16(chan, len);
+    if (buf) strncpy(chan, buf, len);
+    return chan + len;
+}
+
+char * writestat(char * chan, Stat * inbuf) {
+    Stat * outbuf = (Stat*) chan;
+
+    outbuf->type     = htole16(inbuf->type);
+    outbuf->dev      = htole32(inbuf->dev);
+    outbuf->qid.type = htole8(inbuf->qid.type);
+    outbuf->qid.vers = htole32(inbuf->qid.vers);
+    outbuf->qid.path = htole64(inbuf->qid.path);
+    outbuf->mode     = htole32(inbuf->mode);
+    outbuf->atime    = htole32(inbuf->atime);
+    outbuf->mtime    = htole32(inbuf->mtime);
+    outbuf->length   = htole64(inbuf->length);
+
+    return chan + sizeof(Stat);
+}
+
+int rstat(char * filename, struct stat * buf, char * edir, int nedir) {
+    Stat stat; plan9stat(buf, &stat);
+
+    struct passwd * pw = getpwuid(buf->st_uid);
+    struct group  * gr = getgrgid(buf->st_gid);
+
+    if (pw == NULL || gr == NULL) return -1;
+
+    size_t nfilename = strlen(filename);
+    size_t npw       = strlen(pw->pw_name);
+    size_t ngr       = strlen(gr->gr_name);
+
+    uint16_t size = sizeof(Stat)
+                  + (sizeof(uint16_t) + nfilename)
+                  + (sizeof(uint16_t) + npw)
+                  + (sizeof(uint16_t) + ngr)
+                  + (sizeof(uint16_t) + 0);
+
+    if (nedir < BIT16SZ) return 0;
+    if (nedir < size) { write16(edir, size); return BIT16SZ; }
+
+    edir = write16(edir, size);
+    edir = writestat(edir, &stat);
+    edir = writenstr(edir, filename, nfilename);
+    edir = writenstr(edir, pw->pw_name, npw);
+    edir = writenstr(edir, gr->gr_name, ngr);
+    edir = writenstr(edir, NULL, 0);
+
+    return sizeof(uint16_t) + size;
+}
+
+uint64_t sys_stat(uint64_t * rsp, greg_t * regs) {
+    char * filepath = (char*) *(++rsp);
+    char * edir = (char*) *(++rsp);
+    int nedir = (int) *(++rsp);
+
+    #ifdef DEBUG
+        printf("FSTAT filepath = %s edir = %p nedir = %d\n", filepath, edir, nedir);
+    #endif
+
+    struct stat sbuf = {0}; char buf[PATH_MAX + 1];
+
+    if (stat(filepath, &sbuf)) return seterrno();
+    if (realpath(filepath, buf) == NULL) return seterrno();
+
+    return rstat(basename(buf), &sbuf, edir, nedir);
+}
+
+uint64_t sys_fstat(uint64_t * rsp, greg_t * regs) {
+    int fd = (int) *(++rsp);
+    char * edir = (char*) *(++rsp);
+    int nedir = (int) *(++rsp);
+
+    #ifdef DEBUG
+        printf("FSTAT fd = %d edir = %p nedir = %d\n", fd, edir, nedir);
+    #endif
+
+    struct stat sbuf = {0}; char filepath[PATH_MAX + 1]; char buf[PATH_MAX + 1];
+
+    if (fstat(fd, &sbuf)) return seterrno();
+    if (fd2path(fd, filepath, PATH_MAX + 1) == -1) return seterrno();
+    if (realpath(filepath, buf) == NULL) return seterrno();
+
+    return rstat(basename(buf), &sbuf, edir, nedir);
 }

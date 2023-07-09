@@ -77,7 +77,7 @@ uint64_t sys_rfork(uint64_t * rsp, greg_t * regs) {
             // https://man7.org/linux/man-pages/man2/prctl.2.html
             // The setting (PR_SET_SYSCALL_USER_DISPATCH) is not preserved
             // across fork(2), clone(2), or execve(2).
-            init();
+            sudinit();
 
             detach_everything(); exitmsg = cexitmsg;
             if (flags & RFCFDG) close_range(0L, -1L, 0);
