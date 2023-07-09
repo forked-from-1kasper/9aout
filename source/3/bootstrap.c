@@ -14,7 +14,7 @@
 
 #include <bootstrap.h>
 #include <shared.h>
-#include <9aout.h>
+#include <aout.h>
 
 static uint8_t selector = SYSCALL_DISPATCH_FILTER_ALLOW;
 

@@ -7,7 +7,7 @@
 #include <bootstrap.h>
 #include <shared.h>
 #include <error.h>
-#include <9aout.h>
+#include <aout.h>
 
 #include <plan9/sysproc.h>
 #include <plan9/syscall.h>
