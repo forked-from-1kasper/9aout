@@ -53,12 +53,13 @@ uint64_t sys_rfork(uint64_t * rsp, greg_t * regs) {
     if (flags & RFNOWAIT) return seterror("RFNOWAIT not implemented.");
     if (flags & RFCNAMEG) return seterror("RFCNAMEG not implemented.");
     if (flags & RFCENVG)  return seterror("RFCENVG not implemented.");
-    if (flags & RFCFDG)   return seterror("RFCFDG not implemented.");
     //if (flags & RFREND)   return seterror("RFREND not implemented.");
     if (flags & RFNOMNT)  return seterror("RFNOMNT not implemented.");
 
     struct clone_args params = {0};
-    if (!(flags & RFFDG)) params.flags |= CLONE_FILES;
+
+    if (!(flags & RFFDG) && !(flags & RFCFDG))
+        params.flags |= CLONE_FILES;
 
     params.exit_signal = SIGCHLD;
 
@@ -72,10 +73,15 @@ uint64_t sys_rfork(uint64_t * rsp, greg_t * regs) {
     int pid = syscall(SYS_clone3, &params, sizeof(params));
 
     if (flags & RFPROC) {
-        // https://man7.org/linux/man-pages/man2/prctl.2.html
-        // The setting (PR_SET_SYSCALL_USER_DISPATCH) is not preserved
-        // across fork(2), clone(2), or execve(2).
-        if (pid == 0) { init(); detach_everything(); exitmsg = cexitmsg; }
+        if (pid == 0) {
+            // https://man7.org/linux/man-pages/man2/prctl.2.html
+            // The setting (PR_SET_SYSCALL_USER_DISPATCH) is not preserved
+            // across fork(2), clone(2), or execve(2).
+            init();
+
+            detach_everything(); exitmsg = cexitmsg;
+            if (flags & RFCFDG) close_range(0L, -1L, 0);
+        }
         else attach_child(pid, cexitmsg);
     }
 
