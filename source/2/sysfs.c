@@ -256,8 +256,10 @@ int rstat(char * filename, struct stat * buf, char * edir, int nedir) {
                   + (sizeof(uint16_t) + ngr)
                   + (sizeof(uint16_t) + 0);
 
+    uint16_t tsize = sizeof(uint16_t) + size;
+
     if (nedir < BIT16SZ) return 0;
-    if (nedir < size) { write16(edir, size); return BIT16SZ; }
+    if (nedir < tsize) { write16(edir, size); return BIT16SZ; }
 
     edir = write16(edir, size);
     edir = writestat(edir, &stat);
@@ -266,7 +268,7 @@ int rstat(char * filename, struct stat * buf, char * edir, int nedir) {
     edir = writenstr(edir, gr->gr_name, ngr);
     edir = writenstr(edir, NULL, 0);
 
-    return sizeof(uint16_t) + size;
+    return tsize;
 }
 
 uint64_t sys_stat(uint64_t * rsp, greg_t * regs) {
