@@ -8,7 +8,7 @@
 static int plan9mode(int32_t mode) {
     int retval = 0;
 
-    switch (mode & 0x11) {
+    switch (mode & 0b11) {
         case OREAD:  retval = O_RDONLY; break;
         case OWRITE: retval = O_WRONLY; break;
         case ORDWR:  retval = O_RDWR;   break;
