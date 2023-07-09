@@ -241,9 +241,10 @@ int rstat(char * filename, struct stat * buf, char * edir, int nedir) {
     Stat stat; plan9stat(buf, &stat);
 
     struct passwd * pw = getpwuid(buf->st_uid);
-    struct group  * gr = getgrgid(buf->st_gid);
+    if (pw == NULL) return seterrno();
 
-    if (pw == NULL || gr == NULL) return -1;
+    struct group * gr = getgrgid(buf->st_gid);
+    if (gr == NULL) return seterrno();
 
     size_t nfilename = strlen(filename);
     size_t npw       = strlen(pw->pw_name);
