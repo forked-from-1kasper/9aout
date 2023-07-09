@@ -5,9 +5,10 @@
 #define ERRMAX 128 /* max length of error string */
 
 extern char errstr[];
-char * geterror(int);
+
+char *   geterror(int);
 uint64_t seterror(char *);
-int seterrno(void);
+int      seterrno(void);
 
 extern char Eperm[];
 extern char Eexist[];
