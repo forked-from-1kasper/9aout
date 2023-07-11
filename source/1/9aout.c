@@ -3,11 +3,12 @@
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #include <bootstrap.h>
 #include <shared.h>
 #include <error.h>
-#include <aout.h>
+#include <a.out.h>
 
 #include <plan9/sysproc.h>
 #include <plan9/syscall.h>
@@ -84,9 +85,12 @@ int main(int argc, char * argv[]) {
         return -EINVAL;
     }
 
+    int fd = open(argv[1], O_RDONLY);
+    if (fd == -1) return errno;
+
     if (sigsys(handle_sigsys)) return -1;
     if (elfinit()) return -1;
     if (sudinit()) return -1;
 
-    return load(argv[1], argc - 1, argv + 1);
+    return loadaout(fd, argc - 1, argv + 1);
 }

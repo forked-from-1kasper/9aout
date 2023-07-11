@@ -16,7 +16,7 @@
 
 #include <bootstrap.h>
 #include <shared.h>
-#include <aout.h>
+#include <a.out.h>
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
@@ -69,10 +69,7 @@ int sudinit(void) {
     selector = SYSCALL_DISPATCH_FILTER_BLOCK; return 0;
 }
 
-int load(char * filename, int argc, char ** argv) {
-    int fd = open(filename, O_RDONLY);
-    if (fd == -1) return errno;
-
+int loadaout(int fd, int argc, char ** argv) {
     header hdr; ssize_t readn = read(fd, &hdr, sizeof(header));
     if (readn != sizeof(header)) return errno;
 

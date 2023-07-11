@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <error.h>
 #include <stdio.h>
+#include <fcntl.h>
 
 #include <plan9/sysproc.h>
 #include <shared.h>
@@ -100,6 +101,9 @@ uint64_t sys_exec(uint64_t * rsp, greg_t * regs) {
         printf("EXEC filename = %s argc = %d\n", filename0, argc);
     #endif
 
+    int fd = open(filename0, O_RDONLY);
+    if (fd == -1) return seterrno();
+
     // When filename/argv will be used in the new code, current code will
     // already be unloaded, as well as data segment, so we need to copy them
     char * filename = strdup(filename0);
@@ -108,7 +112,7 @@ uint64_t sys_exec(uint64_t * rsp, greg_t * regs) {
     for (size_t i = 0; i < argc; i++)
         argv[i] = strdup(argv0[i]);
 
-    int error = load(filename, argc, argv);
+    int error = loadaout(fd, argc, argv);
 
     // Code below will be executed only if something in “load” goes wrong
     free(filename);
