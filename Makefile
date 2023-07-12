@@ -13,6 +13,10 @@ ifdef DEBUG
 	CFLAGS += -g -DDEBUG
 endif
 
+ifdef LINUX_FALLBACK
+	CFLAGS += -DLINUX_FALLBACK
+endif
+
 all: $(BINNAME)
 
 $(BINNAME): $(OFILES)

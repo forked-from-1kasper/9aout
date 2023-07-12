@@ -17,6 +17,11 @@
 #include <bootstrap.h>
 #include <shared.h>
 #include <a.out.h>
+#include <error.h>
+
+#ifndef PR_SET_SYSCALL_USER_DISPATCH
+    #error "PR_SET_SYSCALL_USER_DISPATCH is not defined. Make sure you are using Linux 5.11 or later."
+#endif
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
@@ -61,6 +66,8 @@ int sudinit(void) {
     // It looks like that there can be *only one* [offset; offset + len) region per thread,
     // so we select one (very) large region containing everything (program text + all dynamic libraries).
 
+    // also look at https://github.com/meme/limbo
+
     if (prctl(PR_SET_SYSCALL_USER_DISPATCH, PR_SYS_DISPATCH_ON, region.begin, 1 + region.end - region.begin, &selector)) {
         fprintf(stderr, "Kernel does not support CONFIG_SYSCALL_USER_DISPATCH\n");
         return -1;
@@ -69,6 +76,7 @@ int sudinit(void) {
     selector = SYSCALL_DISPATCH_FILTER_BLOCK; return 0;
 }
 
+// “loadaout” assumes that “argv” is null-terminated
 int loadaout(int fd, int argc, char ** argv) {
     header hdr; ssize_t readn = read(fd, &hdr, sizeof(header));
     if (readn != sizeof(header)) return errno;
@@ -85,8 +93,12 @@ int loadaout(int fd, int argc, char ** argv) {
     hdr.pcsz     = be32toh(hdr.pcsz);
     hdr.entry    = be64toh(hdr.entry);
 
-    if (hdr.magic != S_MAGIC) return ENOEXEC;
-    if (hdr.entry < UTZERO + sizeof(header)) return ENOEXEC;
+    if (hdr.magic != S_MAGIC || hdr.entry < UTZERO + sizeof(header))
+    #ifdef LINUX_FALLBACK
+        { execvp(argv[0], argv); return seterrno(); }
+    #else
+        return ENOEXEC;
+    #endif
 
     text.size = sizeof(header) + hdr.text;
     data.size = hdr.data + hdr.bss;
@@ -120,10 +132,8 @@ int loadaout(int fd, int argc, char ** argv) {
 
     rsp -= argc + 1; *(--rsp) = argc;
 
-    for (size_t i = 0; i < argc; i++)
+    for (size_t i = 0; i <= argc; i++)
         rsp[i + 1] = (uint64_t) argv[i];
-
-    rsp[argc + 1] = 0;
 
     // FIXME: “argv” leaks here
 

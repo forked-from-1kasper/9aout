@@ -12,6 +12,7 @@
 #include <error.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #include <plan9/sysproc.h>
 #include <shared.h>
@@ -89,6 +90,71 @@ uint64_t sys_rfork(uint64_t * rsp, greg_t * regs) {
     return pid;
 }
 
+// TODO: NULL tests for calloc’s everywhere
+int shargs(char * begin, char * end, int argc, char *** argv) {
+    int n = 0; char * curr = begin + 2; // ignore shebang itself
+
+    for (;;) {
+        while (curr < end && (*curr == ' ' || *curr == '\t')) curr++;
+        if (*curr == '\n') break; n++;
+
+        while (curr < end && *curr != ' ' && *curr != '\t' && *curr != '\n') curr++;
+        if (*curr == '\n') break;
+    }
+
+    *argv = calloc(argc + n + 1, sizeof(char*));
+
+    curr = begin + 2;
+
+    for (size_t i = 0;; i++) {
+        while (curr < end && (*curr == ' ' || *curr == '\t')) curr++;
+        if (*curr == '\n') break;
+
+        char * offset = curr;
+
+        while (curr < end && *curr != ' ' && *curr != '\t' && *curr != '\n') curr++;
+
+        size_t length = curr - offset;
+
+        *argv[i] = calloc(length + 1, sizeof(char*));
+        strncpy(*argv[i], offset, length); (*argv + i)[length] = '\0';
+
+        if (*curr == '\n') break;
+    }
+
+    return n;
+}
+
+uint64_t shebang(int fd, int argc, char ** argv0) {
+    off_t size = lseek(fd, 0, SEEK_END);
+    char * text = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
+
+    if (text == NULL) return seterrno();
+
+    char ** argv; int n = shargs(text, text + size, argc, &argv);
+    if (n == -1) return seterrno();
+
+    for (size_t i = 0; i < argc; i++)
+        argv[n + i] = strdup(argv0[i]);
+
+    argv[n + argc] = NULL;
+
+    int error = 0; munmap(text, size); close(fd);
+
+    int newfd = open(argv[0], O_RDONLY);
+    if (fd == -1) { error = errno; goto error; }
+
+    error = loadaout(newfd, n + argc, argv);
+
+error:
+    for (size_t i = 0; i < n + argc; i++)
+        free(argv[i]);
+
+    free(argv);
+
+    return seterror(geterror(error));
+}
+
 uint64_t sys_exec(uint64_t * rsp, greg_t * regs) {
     char * filename0 = (char*) *(++rsp);
 
@@ -104,13 +170,22 @@ uint64_t sys_exec(uint64_t * rsp, greg_t * regs) {
     int fd = open(filename0, O_RDONLY);
     if (fd == -1) return seterrno();
 
+    char buf[2] = {0}; if (read(fd, &buf, 2) != 2) return seterrno();
+
+    if (buf[0] == '#' && buf[1] == '!')
+        return shebang(fd, argc, argv0);
+
+    lseek(fd, 0, SEEK_SET);
+
     // When filename/argv will be used in the new code, current code will
     // already be unloaded, as well as data segment, so we need to copy them
     char * filename = strdup(filename0);
-    char ** argv = calloc(argc, sizeof(char*));
+    char ** argv = calloc(argc + 1, sizeof(char*));
 
     for (size_t i = 0; i < argc; i++)
         argv[i] = strdup(argv0[i]);
+
+    argv[argc] = NULL;
 
     int error = loadaout(fd, argc, argv);
 
