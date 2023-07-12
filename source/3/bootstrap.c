@@ -95,7 +95,7 @@ int loadaout(int fd, int argc, char ** argv) {
 
     if (hdr.magic != S_MAGIC || hdr.entry < UTZERO + sizeof(header))
     #ifdef LINUX_FALLBACK
-        { execvp(argv[0], argv); return seterrno(); }
+        { execvp(argv[0], argv); return errno; }
     #else
         return ENOEXEC;
     #endif
