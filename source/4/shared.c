@@ -4,45 +4,39 @@
 
 #include <shared.h>
 
-List * family = NULL;
-
-char * exitmsg = NULL;
-int _fd = -1;
-
-segment _text = {0};
-segment _data = {0};
+Proc self = {0};
 
 void nuke() {
-    if (_text.begin) munmap(_text.begin, _text.size);
-    if (_data.begin) munmap(_data.begin, _data.size);
-    if (_fd != -1)   close(_fd);
+    if (self.text.begin) munmap(self.text.begin, self.text.size);
+    if (self.data.begin) munmap(self.data.begin, self.data.size);
+    if (self.fd != -1)   close(self.fd);
 }
 
 void swap(int fd, segment text, segment data)
-{ _fd = fd; _text = text; _data = data; }
+{ self.fd = fd; self.text = text; self.data = data; }
 
-void attach_child(int pid, char * msg) {
-    List * node = malloc(sizeof(List));
+void insertq(Waitq ** wq, int pid, char * exitmsg) {
+    Waitq * wqnew = malloc(sizeof(Waitq));
 
-    node->pid            = pid;
-    node->next           = family;
-    node->data.exitmsg   = msg;
-    node->data.timestamp = timestamp();
+    wqnew->pid           = pid;
+    wqnew->next          = *wq;
+    wqnew->msg.exitmsg   = exitmsg;
+    wqnew->msg.timestamp = timestamp();
 
-    family = node;
+    *wq = wqnew;
 }
 
-pdata detach_child(int pid) {
-    pdata retval = {0};
+Waitmsg awaitq(Waitq ** wq, int pid) {
+    Waitmsg retval = {0};
 
-    List * prev = NULL, * cur = family;
+    Waitq * prev = NULL, * cur = *wq;
 
     while (cur != NULL) {
         if (cur->pid == pid) {
-            retval = cur->data;
+            retval = cur->msg;
 
             if (prev) prev->next = cur->next;
-            else family = cur->next;
+            else *wq = cur->next;
 
             free(cur);
 
@@ -53,14 +47,12 @@ pdata detach_child(int pid) {
     return retval;
 }
 
-void free_list(List * xs) {
-    while (xs != NULL) {
-        List * next = xs->next;
-        free(xs); xs = next;
+void dropq(Waitq ** wq) {
+    while (*wq != NULL) {
+        Waitq * next = (*wq)->next;
+        free(*wq); *wq = next;
     }
 }
-
-void detach_everything() { free_list(family); family = NULL; }
 
 uint64_t millisecs(struct timeval time)
 { return time.tv_sec * 1000L + time.tv_usec / 1000L; }

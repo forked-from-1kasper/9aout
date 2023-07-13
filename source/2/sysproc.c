@@ -65,11 +65,11 @@ uint64_t sys_rfork(uint64_t * rsp, greg_t * regs) {
 
     params.exit_signal = SIGCHLD;
 
-    char * cexitmsg = NULL;
+    char * exitmsg = NULL;
 
     if (flags & RFPROC) {
-        cexitmsg = mmap(NULL, ERRLEN * sizeof(char), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-        memset(cexitmsg, 0, ERRLEN * sizeof(char));
+        exitmsg = mmap(NULL, ERRLEN * sizeof(char), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        memset(exitmsg, 0, ERRLEN * sizeof(char));
     }
 
     int pid = syscall(SYS_clone3, &params, sizeof(params));
@@ -81,10 +81,10 @@ uint64_t sys_rfork(uint64_t * rsp, greg_t * regs) {
             // across fork(2), clone(2), or execve(2).
             sudinit();
 
-            detach_everything(); exitmsg = cexitmsg;
+            dropq(&self.wq); self.exitmsg = exitmsg;
             if (flags & RFCFDG) close_range(0L, -1L, 0);
         }
-        else attach_child(pid, cexitmsg);
+        else insertq(&self.wq, pid, exitmsg);
     }
 
     return pid;
@@ -213,15 +213,15 @@ uint64_t sys_await(uint64_t * rsp, greg_t * regs) {
 
     if (pid == -1) return seterrno();
 
-    pdata data = detach_child(pid);
+    Waitmsg msg = awaitq(&self.wq, pid);
 
     uint64_t user = millisecs(usage.ru_utime);
     uint64_t sys  = millisecs(usage.ru_stime);
-    uint64_t real = timestamp() - data.timestamp;
+    uint64_t real = timestamp() - msg.timestamp;
 
     // TODO: quote “'” to “''”
-    int written = snprintf(buf, n, "%d %ld %ld %ld '%s'", pid, user, sys, real, data.exitmsg);
-    munmap(data.exitmsg, ERRLEN * sizeof(char));
+    int written = snprintf(buf, n, "%d %ld %ld %ld '%s'", pid, user, sys, real, msg.exitmsg);
+    munmap(msg.exitmsg, ERRLEN * sizeof(char));
 
     return written;
 }
@@ -236,20 +236,20 @@ uint64_t sys_exits(uint64_t * rsp, greg_t * regs) {
 
     int exitcode = (buf == NULL || buf[0] == '\0') ? 0 : -1;
 
-    if (exitmsg && buf) strncpy(exitmsg, buf, ERRLEN);
+    if (self.exitmsg && buf) strncpy(self.exitmsg, buf, ERRLEN);
 
-    detach_everything(); nuke(); exit(exitcode);
+    dropq(&self.wq); nuke(); exit(exitcode);
 }
 
 uint64_t sys_brk(uint64_t * rsp, greg_t * regs) {
     void * addr = (void*) *(++rsp);
 
-    size_t size = addr - _data.begin;
-    void * ptr  = mremap(_data.begin, _data.size, size, 0);
+    size_t size = addr - self.data.begin;
+    void * ptr  = mremap(self.data.begin, self.data.size, size, 0);
 
     if (ptr == MAP_FAILED) return -1;
 
-    _data.size = size; _data.begin = ptr; return 0;
+    self.data.size = size; self.data.begin = ptr; return 0;
 }
 
 uint64_t generrstr(char *msg, size_t nbuf) {

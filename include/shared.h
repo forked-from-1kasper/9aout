@@ -10,33 +10,38 @@ struct segment {
     uint32_t size;
 };
 
-typedef struct pdata pdata;
+typedef struct Waitmsg Waitmsg;
 
-struct pdata {
+struct Waitmsg {
     uint64_t timestamp;
     char *   exitmsg;
 };
 
-typedef struct List List;
+typedef struct Waitq Waitq;
 
-struct List {
-    int    pid;
-    pdata  data;
-    List * next;
+struct Waitq {
+    int      pid;
+    Waitmsg  msg;
+    Waitq *  next;
 };
 
-extern List * family;
+typedef struct Proc Proc;
 
-extern char * exitmsg;
-extern int _fd;
-extern segment _text, _data;
+struct Proc {
+    char *  exitmsg;
+    int     fd;
+    segment text, data;
+    Waitq * wq;
+};
+
+extern Proc self;
 
 void swap(int, segment, segment);
 void nuke();
 
-void  attach_child(int, char *);
-pdata detach_child(int);
-void  detach_everything(void);
+void    insertq(Waitq **, int, char *);
+Waitmsg awaitq(Waitq **, int);
+void    dropq(Waitq **);
 
 uint64_t timestamp(void);
 uint64_t millisecs(struct timeval);
