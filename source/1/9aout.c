@@ -6,7 +6,7 @@
 #include <fcntl.h>
 
 #include <bootstrap.h>
-#include <shared.h>
+#include <namespace.h>
 #include <error.h>
 #include <a.out.h>
 

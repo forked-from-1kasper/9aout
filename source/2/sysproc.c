@@ -15,7 +15,7 @@
 #include <errno.h>
 
 #include <plan9/sysproc.h>
-#include <shared.h>
+#include <namespace.h>
 
 uint64_t sys_sleep(uint64_t * rsp, greg_t * regs) {
     uint32_t millisecs = (uint32_t) *(++rsp);

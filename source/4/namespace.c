@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#include <shared.h>
+#include <namespace.h>
 
 Proc self = {0};
 

@@ -15,7 +15,7 @@
 #include <link.h>
 
 #include <bootstrap.h>
-#include <shared.h>
+#include <namespace.h>
 #include <a.out.h>
 #include <error.h>
 
