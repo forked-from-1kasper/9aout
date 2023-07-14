@@ -210,6 +210,7 @@ void plan9stat(const struct stat * inbuf, Stat * outbuf) {
     outbuf->length   = inbuf->st_size;
 
     if (S_ISDIR(inbuf->st_mode)) { outbuf->length = 0; outbuf->mode |= DMDIR; outbuf->qid.type = QTDIR; }
+    if (S_ISFIFO(inbuf->st_mode)) { outbuf->mode |= DMAPPEND; }
 }
 
 char * write16(char * chan, uint16_t value)

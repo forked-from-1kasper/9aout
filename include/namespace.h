@@ -36,7 +36,7 @@ struct Proc {
 
 extern Proc self;
 
-void swap(int, segment, segment);
+void swap(segment, segment);
 void nuke();
 
 void    insertq(Waitq **, int, char *);

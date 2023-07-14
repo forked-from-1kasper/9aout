@@ -9,11 +9,10 @@ Proc self = {0};
 void nuke() {
     if (self.text.begin) munmap(self.text.begin, self.text.size);
     if (self.data.begin) munmap(self.data.begin, self.data.size);
-    if (self.fd != -1)   close(self.fd);
 }
 
-void swap(int fd, segment text, segment data)
-{ self.fd = fd; self.text = text; self.data = data; }
+void swap(segment text, segment data)
+{ self.text = text; self.data = data; }
 
 void insertq(Waitq ** wq, int pid, char * exitmsg) {
     Waitq * wqnew = malloc(sizeof(Waitq));

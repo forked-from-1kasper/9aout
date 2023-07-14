@@ -80,8 +80,6 @@ void handle_sigsys(int sig, siginfo_t * info, void * ucontext) {
 }
 
 int main(int argc, char * argv[]) {
-    self.fd = -1;
-
     if (argc < 2) {
         printf("usage: %s [file] [option ...]\n", basename(argv[0]));
         return -EINVAL;
