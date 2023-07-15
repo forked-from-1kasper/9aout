@@ -72,12 +72,12 @@ void handle_sigsys(int sig, siginfo_t * info, void * ucontext) {
     // Plan 9 (amd64) passes syscall number through RBP,
     // so “info->si_syscall” would contain garbage.
     uint64_t * rsp = (uint64_t*) regs[REG_RSP];
-    uint8_t syscall = regs[REGARG];
+    uint64_t syscall = regs[REGARG];
 
     if (syscall == GETSELECTOR)
         regs[REGRET] = (uint64_t) getselector();
     else if (syscall > _NSEC || systab[syscall] == NULL)
-        printf("P9: bad system call (%d)\n", syscall);
+        printf("P9: bad system call (%ld)\n", syscall);
     else regs[REGRET] = systab[syscall](rsp, regs);
 }
 
