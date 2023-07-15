@@ -14,3 +14,5 @@ int loadaout(int, int, char **);
 int sigsys(sighandler);
 int elfinit(void);
 int sudinit(void);
+
+uint8_t * getselector(void);

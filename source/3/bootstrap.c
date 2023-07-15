@@ -28,6 +28,8 @@
 
 static uint8_t selector = SYSCALL_DISPATCH_FILTER_ALLOW;
 
+uint8_t * getselector(void) { return &selector; }
+
 int sigsys(sighandler func) {
     struct sigaction act = {0};
     sigset_t mask; sigemptyset(&mask);

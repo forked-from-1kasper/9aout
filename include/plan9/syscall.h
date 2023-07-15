@@ -1,5 +1,7 @@
 #pragma once
 
+#include <ucontext.h>
+
 #define SYSR1           0
 #define _ERRSTR         1
 #define BIND            2
@@ -52,3 +54,7 @@
 #define PWRITE          51
 #define TSEMACQUIRE     52
 #define _NSEC           53
+#define GETSELECTOR     255
+
+#define REGARG REG_RBP
+#define REGRET REG_RAX
