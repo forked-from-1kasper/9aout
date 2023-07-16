@@ -15,4 +15,4 @@ int sigsys(sighandler);
 int elfinit(void);
 int sudinit(void);
 
-uint8_t * getselector(void);
+extern uint8_t selector;
