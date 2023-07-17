@@ -54,7 +54,7 @@
 #define PWRITE          51
 #define TSEMACQUIRE     52
 #define _NSEC           53
-#define GETSELECTOR     255
+#define SYSLINUX        255
 
 #define REGARG REG_RBP
 #define REGRET REG_RAX
