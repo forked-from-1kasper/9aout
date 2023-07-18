@@ -28,6 +28,10 @@ Hello, World!
 
 `scripts/uninstall-binfmt.sh` reverts everything.
 
+# Status
+
+Nothing works except “Hello, World!”’s, `echo`, `cat`, `time`, `syscall`, `sam -d`, standard assemblers/linkers/compilers (6a/6l/6c for amd64), `rc` (`devdup` and `devenv` not yet supported, so `mkdir /fd && mkdir /env`).
+
 # See also
 
 * [Plan 9 binary format description](http://man.9front.org/6/a.out) from 9front manuals.
