@@ -34,7 +34,7 @@ Hello, World!
 
 * [Glendix](https://www.glendix.org/) ([GitHub](https://github.com/anantn/glendix)): (very) outdated project doing the same thing but using kernel driver instead. Still can be built in, for example, (probably chroot’ed) Debian Trusty.
 
-* [9vx](https://github.com/9fans/vx32/tree/main/src/9vx): lightweight (32-bit) Plan 9 VM.
+* [9vx](https://github.com/9fans/vx32/tree/main/src/9vx): lightweight Plan 9 VM (i386 only).
 
 * [plan9port](https://github.com/9fans/plan9port): port of Plan 9 libraries and utilities to Unix (more like [Cygwin](https://www.cygwin.com/)).
 
