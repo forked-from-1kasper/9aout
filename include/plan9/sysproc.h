@@ -19,8 +19,6 @@ enum
     RFNOMNT  = (1 << 14)
 };
 
-#define ERRLEN 64 /* max length of string passed by Exits */
-
 syscall_handler sys_sleep;
 syscall_handler sys_rfork;
 syscall_handler sys_exec;

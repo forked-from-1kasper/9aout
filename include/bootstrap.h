@@ -11,8 +11,8 @@ typedef uint64_t syscall_handler(uint64_t *, greg_t *);
 typedef void (*sighandler)(int, siginfo_t *, void *);
 
 int loadaout(int, int, char **);
-int sigsys(sighandler);
-int elfinit(void);
-int sudinit(void);
+int  siginit(sighandler);
+int  elfinit(void);
+int  sudinit(void);
 
 extern uint8_t selector;

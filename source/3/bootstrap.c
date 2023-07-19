@@ -26,17 +26,54 @@
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 
+// https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/arch/x86/include/asm/trap_pf.h
+enum x86_pf_error_code {
+    X86_PF_PROT  = 1 << 0,
+    X86_PF_WRITE = 1 << 1,
+    X86_PF_USER  = 1 << 2,
+    X86_PF_RSVD  = 1 << 3,
+    X86_PF_INSTR = 1 << 4,
+    X86_PF_PK    = 1 << 5,
+    X86_PF_SGX   = 1 << 15,
+};
+
 uint8_t selector = SYSCALL_DISPATCH_FILTER_ALLOW;
 
-int sigsys(sighandler func) {
+void sigsegv(int sig, siginfo_t * info, void * ucontext) {
+    ucontext_t * context = (ucontext_t *) ucontext;
+    greg_t       regerr  = context->uc_mcontext.gregs[REG_ERR];
+    void *       regpc   = (void*) context->uc_mcontext.gregs[REG_RIP];
+
+    void * addr = info->si_addr;
+    off_t  size = lseek(self.data.memfd, 0, SEEK_END);
+
+    // If shared memory is out of sync
+    if (self.data.begin + self.data.size <= addr && addr < self.data.begin + size) {
+        if (mremap(self.data.begin, self.data.size, size, 0) == MAP_FAILED)
+            panic("sys: trap: %s pc=%p", geterror(errno), regpc);
+
+        self.data.size = size; return;
+    }
+
+    panic("sys: trap: fault %s addr=%p pc=%p", regerr & X86_PF_WRITE ? "write" : "read", addr, regpc);
+}
+
+int siginit(sighandler sudfunc) {
     struct sigaction act = {0};
     sigset_t mask; sigemptyset(&mask);
 
-    act.sa_sigaction = func;
+    act.sa_sigaction = sudfunc;
     act.sa_flags     = SA_SIGINFO;
     act.sa_mask      = mask;
 
-    return sigaction(SIGSYS, &act, NULL);
+    if (sigaction(SIGSYS, &act, NULL)) return errno;
+
+    act.sa_sigaction = sigsegv;
+    act.sa_flags     = SA_SIGINFO;
+
+    if (sigaction(SIGSEGV, &act, NULL)) return errno;
+
+    return 0;
 }
 
 static Region region;
@@ -81,7 +118,7 @@ int loadaout(int fd, int argc, char ** argv) {
     header hdr; ssize_t readn = read(fd, &hdr, sizeof(header));
     if (readn != sizeof(header)) return errno;
 
-    segment text, data = {0};
+    Segment text = {0}; SharedMem data = {0};
 
     hdr.magic    = be32toh(hdr.magic);
     hdr.text     = be32toh(hdr.text);
@@ -109,17 +146,23 @@ int loadaout(int fd, int argc, char ** argv) {
 
     // In case when “load” was called by “exec” (Plan 9’s) syscall, “handle_sigsys” will not return
     // and SIGSYS will stay blocked, so the next syscall, according to the behaviour of “sigaction”,
-    // will cause the program to crash with SIGSYS; hence we have to unblock it manually.
-
+    // will cause the program to crash with SIGSYS; hence we have to unblock it manually. Also:
     // https://man7.org/linux/man-pages/man2/sigprocmask.2.html
     // It is permissible to attempt to unblock a signal which is not blocked.
     sigset_t mask; sigemptyset(&mask); sigaddset(&mask, SIGSYS);
     sigprocmask(SIG_UNBLOCK, &mask, NULL);
 
-    text.begin = mmap((char*) UTZERO, text.size, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_FIXED, fd, 0);
-    data.begin = mmap((char*) UTZERO + offset, data.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    if (self.name) free(self.name); char * copy = strdup(argv[0]);
+    self.name = strdup(basename(copy)); free(copy);
 
-    if (text.begin == NULL || data.begin == NULL) exit(ENOMEM);
+    text.begin = mmap((char*) UTZERO, text.size, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_FIXED, fd, 0);
+    if (text.begin == MAP_FAILED) panic("sys: %s", geterror(errno));
+
+    int errmem = 0;
+
+    errmem = memnewmutex(&data);                        if (errmem) panic("sys: %s", geterror(errmem));
+    errmem = memnewfd(&data);                           if (errmem) panic("sys: %s", geterror(errmem));
+    errmem = memnewmap(&data, (void*) UTZERO + offset); if (errmem) panic("sys: %s", geterror(errmem));
 
     swap(text, data);
 

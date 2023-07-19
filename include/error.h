@@ -2,7 +2,8 @@
 
 #include <stdint.h>
 
-#define ERRMAX 128 /* max length of error string */
+#define ERRMAX 128 /* max length of error string           */
+#define ERRLEN 64  /* max length of string passed by Exits */
 
 extern char errstr[];
 
@@ -21,3 +22,4 @@ extern char Edabf[];
 extern char Eintr[];
 extern char Enospc[];
 extern char Edquot[];
+extern char Enomem[];

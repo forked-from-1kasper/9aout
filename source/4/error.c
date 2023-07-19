@@ -17,6 +17,7 @@ char * geterror(int error) {
         case EIO:          return Eio;
         case ENOSPC:       return Enospc;
         case EDQUOT:       return Edquot;
+        case ENOMEM:       return Enomem;
         default:           return strerror(error);
     }
 }
@@ -39,3 +40,4 @@ char Edabf[]     = "fd out of range or not open";
 char Eintr[]     = "interrupted";
 char Enospc[]    = "file system full";
 char Edquot[]    = "disk quota exceeded";
+char Enomem[]    = "out of memory";

@@ -16,12 +16,13 @@
 
 #include <plan9/sysproc.h>
 #include <namespace.h>
+#include <a.out.h>
 
 uint64_t sys_sleep(uint64_t * rsp, greg_t * regs) {
     uint32_t millisecs = (uint32_t) *(++rsp);
 
     #ifdef DEBUG
-        printf("SLEEP %d\n", millisecs);
+        printf("(%d) SLEEP %d\n", self.pid, millisecs);
     #endif
 
     struct timespec time = {0};
@@ -36,7 +37,7 @@ uint64_t sys_rfork(uint64_t * rsp, greg_t * regs) {
     int flags = (int) *(++rsp);
 
     #ifdef DEBUG
-        printf("RFORK flags = %d\n", flags);
+        printf("(%d) RFORK flags = %d\n", self.pid, flags);
     #endif
 
     if ((flags & (RFFDG|RFCFDG)) == (RFFDG|RFCFDG))
@@ -51,7 +52,6 @@ uint64_t sys_rfork(uint64_t * rsp, greg_t * regs) {
     if (flags & RFNAMEG)  return seterror("RFNAMEG not implemented.");
     if (flags & RFENVG)   return seterror("RFENVG not implemented.");
     if (flags & RFNOTEG)  return seterror("RFNOTEG not implemented.");
-    if (flags & RFMEM)    return seterror("RFMEM not implemented.");
     if (flags & RFNOWAIT) return seterror("RFNOWAIT not implemented.");
     if (flags & RFCNAMEG) return seterror("RFCNAMEG not implemented.");
     if (flags & RFCENVG)  return seterror("RFCENVG not implemented.");
@@ -72,19 +72,53 @@ uint64_t sys_rfork(uint64_t * rsp, greg_t * regs) {
         memset(exitmsg, 0, ERRLEN * sizeof(char));
     }
 
+    if (!(flags & RFMEM)) memlock(&self.data);
+
     int pid = syscall(SYS_clone3, &params, sizeof(params));
 
     if (flags & RFPROC) {
         if (pid == 0) {
+            self.pid = getpid();
+
             // https://man7.org/linux/man-pages/man2/prctl.2.html
             // The setting (PR_SET_SYSCALL_USER_DISPATCH) is not preserved
             // across fork(2), clone(2), or execve(2).
             sudinit();
 
             dropq(&self.wq); self.exitmsg = exitmsg;
-            if (flags & RFCFDG) close_range(0L, -1L, 0);
+
+            if (!(flags & RFMEM)) {
+                int memfd = self.data.memfd; int errmem = memnewfd(&self.data);
+                if (errmem) { memunlock(&self.data); panic("sys: %s", geterror(errmem)); }
+
+                // Don’t know whether it really performs copy-on-write with
+                // memfd_create fd’s, but documentation says something about it.
+                // Anyway, it looks faster than just naive “memcpy”
+                // and typical Plan 9 program is relatively small.
+                // https://man7.org/linux/man-pages/man2/copy_file_range.2.html
+                // copy_file_range() gives filesystems an opportunity to implement
+                // "copy acceleration" techniques, such as the use of reflinks
+                // (i.e., two or more inodes that share pointers to the same copy-
+                // on-write disk blocks) or server-side-copy (in the case of NFS).
+                off64_t offin = 0, offout = 0;
+                ssize_t nbytes = copy_file_range(memfd, &offin, self.data.memfd, &offout, self.data.size, 0);
+
+                memunlock(&self.data);
+
+                if (nbytes == -1) panic("sys: %s", geterror(errno));
+
+                errmem = memnewmutex(&self.data);                if (errmem) panic("sys: %s", geterror(errmem));
+                errmem = memnewmap(&self.data, self.data.begin); if (errmem) panic("sys: %s", geterror(errmem));
+            }
+
+            if (flags & RFCFDG) {
+                close_range(0L, self.data.memfd - 1L, 0);
+                close_range(self.data.memfd + 1L, -1L, 0);
+            }
+        } else {
+            if (!(flags & RFMEM)) memwait(&self.data);
+            insertq(&self.wq, pid, exitmsg);
         }
-        else insertq(&self.wq, pid, exitmsg);
     }
 
     return pid;
@@ -126,7 +160,11 @@ int shargs(char * begin, char * end, int argc, char *** argv) {
 }
 
 uint64_t shebang(int fd, int argc, char ** argv0) {
+    int error = 0;
+
     off_t size = lseek(fd, 0, SEEK_END);
+    if (size == -1) { close(fd); error = errno; goto error; }
+
     char * text = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
 
     if (text == NULL) return seterrno();
@@ -139,7 +177,7 @@ uint64_t shebang(int fd, int argc, char ** argv0) {
 
     argv[n + argc] = NULL;
 
-    int error = 0; munmap(text, size); close(fd);
+    munmap(text, size); close(fd);
 
     int newfd = open(argv[0], O_RDONLY);
     if (fd == -1) { error = errno; goto error; }
@@ -164,7 +202,7 @@ uint64_t sys_exec(uint64_t * rsp, greg_t * regs) {
     int argc = 0; for (; argv0[argc] != NULL; argc++);
 
     #ifdef DEBUG
-        printf("EXEC filename = %s argc = %d\n", filename0, argc);
+        printf("(%d) EXEC filename = %s argc = %d\n", self.pid, filename0, argc);
     #endif
 
     int fd = open(filename0, O_RDONLY);
@@ -205,7 +243,7 @@ uint64_t sys_await(uint64_t * rsp, greg_t * regs) {
     int n = (int) *(++rsp);
 
     #ifdef DEBUG
-        printf("AWAIT buf = %p n = %d\n", buf, n);
+        printf("(%d) AWAIT buf = %p n = %d\n", self.pid, buf, n);
     #endif
 
     struct rusage usage; int wstatus;
@@ -220,7 +258,7 @@ uint64_t sys_await(uint64_t * rsp, greg_t * regs) {
     uint64_t real = timestamp() - msg.timestamp;
 
     // TODO: quote “'” to “''”
-    int written = snprintf(buf, n, "%d %ld %ld %ld '%s'", pid, user, sys, real, msg.exitmsg);
+    int written = snprintf(buf, n, "%d %ld %ld %ld '%.*s'", pid, user, sys, real, ERRLEN, msg.exitmsg);
     munmap(msg.exitmsg, ERRLEN * sizeof(char));
 
     return written;
@@ -230,11 +268,11 @@ uint64_t sys_exits(uint64_t * rsp, greg_t * regs) {
     char * buf = (char*) *(++rsp);
 
     #ifdef DEBUG
-        if (buf != NULL) printf("exits: %s\n", buf);
-        else printf("exits\n");
+        if (buf != NULL) printf("(%d) exits: %.*s\n", self.pid, ERRLEN, buf);
+        else printf("(%d) exits\n", self.pid);
     #endif
 
-    int exitcode = (buf == NULL || buf[0] == '\0') ? 0 : -1;
+    int exitcode = (buf == NULL || buf[0] == '\0') ? EXIT_SUCCESS : EXIT_FAILURE;
 
     if (self.exitmsg && buf) strncpy(self.exitmsg, buf, ERRLEN);
 
@@ -244,12 +282,21 @@ uint64_t sys_exits(uint64_t * rsp, greg_t * regs) {
 uint64_t sys_brk(uint64_t * rsp, greg_t * regs) {
     void * addr = (void*) *(++rsp);
 
-    size_t size = addr - self.data.begin;
-    void * ptr  = mremap(self.data.begin, self.data.size, size, 0);
+    #ifdef DEBUG
+        printf("(%d) BRK addr = %p\n", self.pid, addr);
+    #endif
 
-    if (ptr == MAP_FAILED) return -1;
+    memlock(&self.data);
 
-    self.data.size = size; self.data.begin = ptr; return 0;
+    size_t newsize = addr - self.data.begin;
+    ftruncate(self.data.memfd, newsize);
+
+    void * ptr = mremap(self.data.begin, self.data.size, newsize, 0);
+    if (ptr != MAP_FAILED) self.data.size = newsize;
+
+    memunlock(&self.data);
+
+    return (ptr == MAP_FAILED) ? seterrno() : 0;
 }
 
 uint64_t generrstr(char *msg, size_t nbuf) {

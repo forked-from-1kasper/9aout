@@ -12,6 +12,7 @@
 #include <grp.h>
 
 #include <plan9/sysfs.h>
+#include <namespace.h>
 #include <error.h>
 
 #define htole8(x) (x)
@@ -44,14 +45,14 @@ static int modechk(char * file, int32_t mode) {
 }
 
 uint64_t sys_open(uint64_t * rsp, greg_t * regs) {
-    char * file = (char*) *(++rsp);
+    char *  file = (char*) *(++rsp);
     int32_t mode = (int32_t) *(++rsp);
 
     int fd = open(file, plan9mode(mode));
     if (modechk(file, mode)) return -1;
 
     #ifdef DEBUG
-        printf("OPEN file = %s mode = %d fd = %d\n", file, mode, fd);
+        printf("(%d) OPEN file = %s mode = %d fd = %d\n", self.pid, file, mode, fd);
     #endif
 
     return (fd != -1) ? fd : seterrno();
@@ -61,19 +62,19 @@ uint64_t sys_close(uint64_t * rsp, greg_t * regs) {
     int fd = (int) *(++rsp);
 
     #ifdef DEBUG
-        printf("CLOSE fd = %d\n", fd);
+        printf("(%d) CLOSE fd = %d\n", self.pid, fd);
     #endif
 
     return (close(fd) != -1) ? 0 : seterrno();
 }
 
 uint64_t sys_create(uint64_t * rsp, greg_t * regs) {
-    char * file = (char*) *(++rsp);
-    int32_t mode = (int32_t) *(++rsp);
+    char *   file = (char*) *(++rsp);
+    int32_t  mode = (int32_t) *(++rsp);
     uint32_t perm = (uint32_t) *(++rsp);
 
     #ifdef DEBUG
-        printf("CREATE file = %s mode = %d perm = %d\n", file, mode, perm);
+        printf("(%d) CREATE file = %s mode = %d perm = %d\n", self.pid, file, mode, perm);
     #endif
 
     int fd = open(file, plan9mode(mode) | O_CREAT | O_TRUNC, perm);
@@ -84,45 +85,48 @@ uint64_t sys_create(uint64_t * rsp, greg_t * regs) {
 
 uint64_t sys_remove(uint64_t * rsp, greg_t * regs) {
     char * file = (char*) *(++rsp);
+
+    #ifdef DEBUG
+        printf("(%d) REMOVE file = %s\n", self.pid, file);
+    #endif
+
     return remove(file);
 }
 
 uint64_t sys_pread(uint64_t * rsp, greg_t * regs) {
-    int fd = (int) *(++rsp);
-    void * buf = (void*) *(++rsp);
-    size_t len = (uint32_t) *(++rsp);
-    off_t offset = (uint64_t) *(++rsp);
+    int    fd     = (int)      *(++rsp);
+    void * buf    = (void*)    *(++rsp);
+    size_t len    = (uint32_t) *(++rsp);
+    off_t  offset = (uint64_t) *(++rsp);
 
     #ifdef DEBUG
-        printf("PREAD fd = %d len = %ld offset = %ld\n", fd, len, offset);
+        printf("(%d) PREAD fd = %d buf = %p len = %ld offset = %ld\n", self.pid, fd, buf, len, offset);
     #endif
 
     return (offset == -1) ? read(fd, buf, len) : pread(fd, buf, len, offset);
 }
 
 uint64_t sys_pwrite(uint64_t * rsp, greg_t * regs) {
-    int fd = (int) *(++rsp);
-    void * buf = (void*) *(++rsp);
-    size_t len = (uint32_t) *(++rsp);
-    off_t offset = (uint64_t) *(++rsp);
+    int    fd     = (int)      *(++rsp);
+    void * buf    = (void*)    *(++rsp);
+    size_t len    = (uint32_t) *(++rsp);
+    off_t  offset = (uint64_t) *(++rsp);
 
     #ifdef DEBUG
-        printf("PWRITE fd = %d len = %ld offset = %ld\n", fd, len, offset);
+        printf("(%d) PWRITE fd = %d buf = %p len = %ld offset = %ld\n", self.pid, fd, buf, len, offset);
     #endif
 
     return (offset == -1) ? write(fd, buf, len) : pwrite(fd, buf, len, offset);
 }
 
 uint64_t sys_seek(uint64_t * rsp, greg_t * regs) {
-    off_t * retp = (off_t*) *(++rsp);
-
-    int fd = (int) *(++rsp);
-
-    off_t offset = (uint64_t) *(++rsp);
-    int type = (int) *(++rsp);
+    off_t * retp   = (off_t*)   *(++rsp);
+    int     fd     = (int)      *(++rsp);
+    off_t   offset = (uint64_t) *(++rsp);
+    int     type   = (int)      *(++rsp);
 
     #ifdef DEBUG
-        printf("SEEK fd = %d offset = %ld type = %d\n", fd, offset, type);
+        printf("(%d) SEEK fd = %d offset = %ld type = %d\n", self.pid, fd, offset, type);
     #endif
 
     int whence = 0;
@@ -146,9 +150,13 @@ int fd2path(int fd, char * buf, size_t nbuf) {
 }
 
 uint64_t sys_fd2path(uint64_t * rsp, greg_t * regs) {
-    int fd = (int) *(++rsp);
-    char * buf = (char*) *(++rsp);
+    int    fd   = (int)    *(++rsp);
+    char * buf  = (char*)  *(++rsp);
     size_t nbuf = (size_t) *(++rsp);
+
+    #ifdef DEBUG
+        printf("(%d) FD2PATH fd = %d buf = %p nbuf = %ld\n", self.pid, fd, buf, nbuf);
+    #endif
 
     if (fd2path(fd, buf, nbuf) == -1)
         return seterrno();
@@ -160,7 +168,7 @@ uint64_t sys_dup(uint64_t * rsp, greg_t * regs) {
     int newfd = (int32_t) *(++rsp);
 
     #ifdef DEBUG
-        printf("DUP oldfd = %d newfd = %d\n", oldfd, newfd);
+        printf("(%d) DUP oldfd = %d newfd = %d\n", self.pid, oldfd, newfd);
     #endif
 
     int fd = (newfd == -1) ? dup(oldfd) : dup2(oldfd, newfd);
@@ -172,7 +180,7 @@ uint64_t sys_chdir(uint64_t * rsp, greg_t * regs) {
     char * filepath = (char*) *(++rsp);
 
     #ifdef DEBUG
-        printf("CHDIR filepath = %s\n", filepath);
+        printf("(%d) CHDIR filepath = %s\n", self.pid, filepath);
     #endif
 
     return (chdir(filepath) != -1) ? 0 : seterrno();
@@ -274,11 +282,11 @@ int rstat(char * filename, struct stat * buf, char * edir, int nedir) {
 
 uint64_t sys_stat(uint64_t * rsp, greg_t * regs) {
     char * filepath = (char*) *(++rsp);
-    char * edir = (char*) *(++rsp);
-    int nedir = (int) *(++rsp);
+    char * edir     = (char*) *(++rsp);
+    int    nedir    = (int)   *(++rsp);
 
     #ifdef DEBUG
-        printf("STAT filepath = %s edir = %p nedir = %d\n", filepath, edir, nedir);
+        printf("(%d) STAT filepath = %s edir = %p nedir = %d\n", self.pid, filepath, edir, nedir);
     #endif
 
     struct stat sbuf = {0}; char buf[PATH_MAX + 1];
@@ -290,12 +298,12 @@ uint64_t sys_stat(uint64_t * rsp, greg_t * regs) {
 }
 
 uint64_t sys_fstat(uint64_t * rsp, greg_t * regs) {
-    int fd = (int) *(++rsp);
-    char * edir = (char*) *(++rsp);
-    int nedir = (int) *(++rsp);
+    int    fd    = (int)   *(++rsp);
+    char * edir  = (char*) *(++rsp);
+    int    nedir = (int)   *(++rsp);
 
     #ifdef DEBUG
-        printf("FSTAT fd = %d edir = %p nedir = %d\n", fd, edir, nedir);
+        printf("(%d) FSTAT fd = %d edir = %p nedir = %d\n", self.pid, fd, edir, nedir);
     #endif
 
     struct stat sbuf = {0}; char filepath[PATH_MAX + 1]; char buf[PATH_MAX + 1];

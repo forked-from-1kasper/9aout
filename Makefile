@@ -2,7 +2,7 @@ CC         = gcc
 SOURCEDIR  = source
 INCLUDEDIR = include
 BINNAME    = 9aout
-LDFLAGS    = -Wl,-Ttext-segment,0x700000000000
+LDFLAGS    = -Wl,-Ttext-segment,0x700000000000 -pthread
 CFLAGS     = -Wall -Wno-misleading-indentation -fomit-frame-pointer -I$(INCLUDEDIR)
 
 CFILES := $(shell find $(SOURCEDIR) -name '*.c' | sort -n)

@@ -67,7 +67,7 @@ syscall_handler * systab[] = {
 
 void handle_sigsys(int sig, siginfo_t * info, void * ucontext) {
     ucontext_t * context = (ucontext_t *) ucontext;
-    greg_t *regs = context->uc_mcontext.gregs;
+    greg_t * regs = context->uc_mcontext.gregs;
 
     // Plan 9 (amd64) passes syscall number through RBP,
     // so “info->si_syscall” would contain garbage.
@@ -87,10 +87,12 @@ int main(int argc, char * argv[]) {
         return -EINVAL;
     }
 
+    self.pid = getpid();
+
     int fd = open(argv[1], O_RDONLY);
     if (fd == -1) return errno;
 
-    if (sigsys(handle_sigsys)) return -1;
+    if (siginit(handle_sigsys)) return -1;
     if (elfinit()) return -1;
     if (sudinit()) return -1;
 

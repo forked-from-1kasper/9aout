@@ -1,14 +1,31 @@
 #pragma once
 
+#include <pthread.h>
 #include <stdint.h>
 #include <time.h>
 
-typedef struct segment segment;
+typedef struct Segment Segment;
 
-struct segment {
+struct Segment {
     void *   begin;
     uint32_t size;
 };
+
+typedef struct SharedMem SharedMem;
+
+struct SharedMem {
+    int               memfd;
+    void *            begin;
+    uint32_t          size;
+    pthread_mutex_t * mutex;
+};
+
+int    memnewmap(SharedMem *, void *);
+int     memnewfd(SharedMem *);
+int  memnewmutex(SharedMem *);
+void     memlock(SharedMem *);
+void   memunlock(SharedMem *);
+void     memwait(SharedMem *);
 
 typedef struct Waitmsg Waitmsg;
 
@@ -28,20 +45,25 @@ struct Waitq {
 typedef struct Proc Proc;
 
 struct Proc {
-    char *  exitmsg;
-    int     fd;
-    segment text, data;
-    Waitq * wq;
+    pid_t     pid;
+    char *    name;
+    char *    exitmsg;
+    int       fd;
+    Segment   text;
+    SharedMem data;
+    Waitq *   wq;
 };
 
 extern Proc self;
 
-void swap(segment, segment);
+void swap(Segment, SharedMem);
 void nuke();
 
 void    insertq(Waitq **, int, char *);
-Waitmsg awaitq(Waitq **, int);
-void    dropq(Waitq **);
+Waitmsg  awaitq(Waitq **, int);
+void      dropq(Waitq **);
 
 uint64_t timestamp(void);
 uint64_t millisecs(struct timeval);
+
+void panic(const char *, ...);
