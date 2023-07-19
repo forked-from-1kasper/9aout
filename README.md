@@ -19,9 +19,9 @@ or
 ```sh
 $ make DEBUG=1
 $ ./9aout example/hello
-(10000) PWRITE fd = 1 buf = 0x7ffc00000000 len = 14 offset = -1
+hello 10000: pwrite(fd = 1, buf = 0x7ffc00000000, len = 14, offset = -1)
 Hello, World!
-(10000) exits: main
+hello 10000: exits(buf = main)
 ```
 
 `scripts/install-binfmt.sh` installs `9aout` binary in `binfmt_misc`, so Plan 9 binaries can be run directly (i.e. `./example/hello` instead of `./9aout example/hello`).

@@ -77,7 +77,7 @@ void handle_sigsys(int sig, siginfo_t * info, void * ucontext) {
     if (syscall == SYSLINUX)
         regs[REGRET] = (uint64_t) &selector;
     else if (syscall > _NSEC || systab[syscall] == NULL)
-        printf("P9: bad system call (%ld)\n", syscall);
+        fprintf(stderr, "P9: bad system call (%ld)\n", syscall);
     else regs[REGRET] = systab[syscall](rsp, regs);
 }
 

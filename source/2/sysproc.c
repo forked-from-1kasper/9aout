@@ -22,7 +22,7 @@ uint64_t sys_sleep(uint64_t * rsp, greg_t * regs) {
     uint32_t millisecs = (uint32_t) *(++rsp);
 
     #ifdef DEBUG
-        printf("(%d) SLEEP %d\n", self.pid, millisecs);
+        printf("%s %d: sleep(%d)\n", self.name, self.pid, millisecs);
     #endif
 
     struct timespec time = {0};
@@ -37,7 +37,7 @@ uint64_t sys_rfork(uint64_t * rsp, greg_t * regs) {
     int flags = (int) *(++rsp);
 
     #ifdef DEBUG
-        printf("(%d) RFORK flags = %d\n", self.pid, flags);
+        printf("%s %d: rfork(flags = %d)\n", self.name, self.pid, flags);
     #endif
 
     if ((flags & (RFFDG|RFCFDG)) == (RFFDG|RFCFDG))
@@ -194,15 +194,14 @@ error:
 }
 
 uint64_t sys_exec(uint64_t * rsp, greg_t * regs) {
-    char * filename0 = (char*) *(++rsp);
-
-    char ** argv0 = (char**) *(++rsp);
+    char *  filename0 = (char*)  *(++rsp);
+    char ** argv0     = (char**) *(++rsp);
 
     if (argv0 == NULL || *argv0 == NULL) return seterror(Ebadarg);
     int argc = 0; for (; argv0[argc] != NULL; argc++);
 
     #ifdef DEBUG
-        printf("(%d) EXEC filename = %s argc = %d\n", self.pid, filename0, argc);
+        printf("%s %d: exec(filename = %s, argc = %d)\n", self.name, self.pid, filename0, argc);
     #endif
 
     int fd = open(filename0, O_RDONLY);
@@ -243,7 +242,7 @@ uint64_t sys_await(uint64_t * rsp, greg_t * regs) {
     int n = (int) *(++rsp);
 
     #ifdef DEBUG
-        printf("(%d) AWAIT buf = %p n = %d\n", self.pid, buf, n);
+        printf("%s %d: await(buf = %p, n = %d)\n", self.name, self.pid, buf, n);
     #endif
 
     struct rusage usage; int wstatus;
@@ -268,8 +267,8 @@ uint64_t sys_exits(uint64_t * rsp, greg_t * regs) {
     char * buf = (char*) *(++rsp);
 
     #ifdef DEBUG
-        if (buf != NULL) printf("(%d) exits: %.*s\n", self.pid, ERRLEN, buf);
-        else printf("(%d) exits\n", self.pid);
+        if (buf != NULL) printf("%s %d: exits(buf = %.*s)\n", self.name, self.pid, ERRLEN, buf);
+        else printf("%s %d: exits(NULL)\n", self.name, self.pid);
     #endif
 
     int exitcode = (buf == NULL || buf[0] == '\0') ? EXIT_SUCCESS : EXIT_FAILURE;
@@ -283,7 +282,7 @@ uint64_t sys_brk(uint64_t * rsp, greg_t * regs) {
     void * addr = (void*) *(++rsp);
 
     #ifdef DEBUG
-        printf("(%d) BRK addr = %p\n", self.pid, addr);
+        printf("%s %d: brk(addr = %p)\n", self.name, self.pid, addr);
     #endif
 
     memlock(&self.data);
@@ -311,8 +310,12 @@ uint64_t generrstr(char *msg, size_t nbuf) {
 }
 
 uint64_t sys_errstr(uint64_t * rsp, greg_t * regs) {
-    char * msg = (char*) *(++rsp);
+    char * msg = (char*)   *(++rsp);
     size_t len = (uint32_t) *(++rsp);
+
+    #ifdef DEBUG
+        printf("%s %d: errstr(msg = %.*s, len = %lu)\n", self.name, self.pid, (uint32_t) len, msg, len);
+    #endif
 
     return generrstr(msg, len);
 }

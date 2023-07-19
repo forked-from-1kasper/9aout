@@ -52,7 +52,7 @@ uint64_t sys_open(uint64_t * rsp, greg_t * regs) {
     if (modechk(file, mode)) return -1;
 
     #ifdef DEBUG
-        printf("(%d) OPEN file = %s mode = %d fd = %d\n", self.pid, file, mode, fd);
+        printf("%s %d: open(file = %s, mode = %d, fd = %d)\n", self.name, self.pid, file, mode, fd);
     #endif
 
     return (fd != -1) ? fd : seterrno();
@@ -62,7 +62,7 @@ uint64_t sys_close(uint64_t * rsp, greg_t * regs) {
     int fd = (int) *(++rsp);
 
     #ifdef DEBUG
-        printf("(%d) CLOSE fd = %d\n", self.pid, fd);
+        printf("%s %d: close(fd = %d)\n", self.name, self.pid, fd);
     #endif
 
     return (close(fd) != -1) ? 0 : seterrno();
@@ -74,7 +74,7 @@ uint64_t sys_create(uint64_t * rsp, greg_t * regs) {
     uint32_t perm = (uint32_t) *(++rsp);
 
     #ifdef DEBUG
-        printf("(%d) CREATE file = %s mode = %d perm = %d\n", self.pid, file, mode, perm);
+        printf("%s %d: create(file = %s, mode = %d, perm = %d)\n", self.name, self.pid, file, mode, perm);
     #endif
 
     int fd = open(file, plan9mode(mode) | O_CREAT | O_TRUNC, perm);
@@ -87,7 +87,7 @@ uint64_t sys_remove(uint64_t * rsp, greg_t * regs) {
     char * file = (char*) *(++rsp);
 
     #ifdef DEBUG
-        printf("(%d) REMOVE file = %s\n", self.pid, file);
+        printf("%s %d: remove(file = %s)\n", self.name, self.pid, file);
     #endif
 
     return remove(file);
@@ -100,7 +100,7 @@ uint64_t sys_pread(uint64_t * rsp, greg_t * regs) {
     off_t  offset = (uint64_t) *(++rsp);
 
     #ifdef DEBUG
-        printf("(%d) PREAD fd = %d buf = %p len = %ld offset = %ld\n", self.pid, fd, buf, len, offset);
+        printf("%s %d: pread(fd = %d, buf = %p, len = %ld, offset = %ld)\n", self.name, self.pid, fd, buf, len, offset);
     #endif
 
     return (offset == -1) ? read(fd, buf, len) : pread(fd, buf, len, offset);
@@ -113,7 +113,7 @@ uint64_t sys_pwrite(uint64_t * rsp, greg_t * regs) {
     off_t  offset = (uint64_t) *(++rsp);
 
     #ifdef DEBUG
-        printf("(%d) PWRITE fd = %d buf = %p len = %ld offset = %ld\n", self.pid, fd, buf, len, offset);
+        printf("%s %d: pwrite(fd = %d, buf = %p, len = %ld, offset = %ld)\n", self.name, self.pid, fd, buf, len, offset);
     #endif
 
     return (offset == -1) ? write(fd, buf, len) : pwrite(fd, buf, len, offset);
@@ -126,7 +126,7 @@ uint64_t sys_seek(uint64_t * rsp, greg_t * regs) {
     int     type   = (int)      *(++rsp);
 
     #ifdef DEBUG
-        printf("(%d) SEEK fd = %d offset = %ld type = %d\n", self.pid, fd, offset, type);
+        printf("%s %d: seek(fd = %d, offset = %ld, type = %d)\n", self.name, self.pid, fd, offset, type);
     #endif
 
     int whence = 0;
@@ -155,7 +155,7 @@ uint64_t sys_fd2path(uint64_t * rsp, greg_t * regs) {
     size_t nbuf = (size_t) *(++rsp);
 
     #ifdef DEBUG
-        printf("(%d) FD2PATH fd = %d buf = %p nbuf = %ld\n", self.pid, fd, buf, nbuf);
+        printf("%s %d: fd2path(fd = %d, buf = %p, nbuf = %ld)\n", self.name, self.pid, fd, buf, nbuf);
     #endif
 
     if (fd2path(fd, buf, nbuf) == -1)
@@ -168,7 +168,7 @@ uint64_t sys_dup(uint64_t * rsp, greg_t * regs) {
     int newfd = (int32_t) *(++rsp);
 
     #ifdef DEBUG
-        printf("(%d) DUP oldfd = %d newfd = %d\n", self.pid, oldfd, newfd);
+        printf("%s %d: dup(oldfd = %d, newfd = %d)\n", self.name, self.pid, oldfd, newfd);
     #endif
 
     int fd = (newfd == -1) ? dup(oldfd) : dup2(oldfd, newfd);
@@ -180,7 +180,7 @@ uint64_t sys_chdir(uint64_t * rsp, greg_t * regs) {
     char * filepath = (char*) *(++rsp);
 
     #ifdef DEBUG
-        printf("(%d) CHDIR filepath = %s\n", self.pid, filepath);
+        printf("%s %d: chdir(filepath = %s)\n", self.name, self.pid, filepath);
     #endif
 
     return (chdir(filepath) != -1) ? 0 : seterrno();
@@ -286,7 +286,7 @@ uint64_t sys_stat(uint64_t * rsp, greg_t * regs) {
     int    nedir    = (int)   *(++rsp);
 
     #ifdef DEBUG
-        printf("(%d) STAT filepath = %s edir = %p nedir = %d\n", self.pid, filepath, edir, nedir);
+        printf("%s %d: stat(filepath = %s, edir = %p, nedir = %d)\n", self.name, self.pid, filepath, edir, nedir);
     #endif
 
     struct stat sbuf = {0}; char buf[PATH_MAX + 1];
@@ -303,7 +303,7 @@ uint64_t sys_fstat(uint64_t * rsp, greg_t * regs) {
     int    nedir = (int)   *(++rsp);
 
     #ifdef DEBUG
-        printf("(%d) FSTAT fd = %d edir = %p nedir = %d\n", self.pid, fd, edir, nedir);
+        printf("%s %d: fstat(fd = %d, edir = %p, nedir = %d)\n", self.name, self.pid, fd, edir, nedir);
     #endif
 
     struct stat sbuf = {0}; char filepath[PATH_MAX + 1]; char buf[PATH_MAX + 1];
