@@ -14,7 +14,7 @@ struct header {
     uint32_t spsz;     /* size of pc/sp offset table */
     uint32_t pcsz;     /* size of pc/line number table */
     uint64_t entry;    /* entry point */
-};
+} __attribute__((__packed__));
 
 #define HDR_MAGIC 0x00008000 /* header expansion */
 

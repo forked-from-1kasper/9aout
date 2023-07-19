@@ -75,7 +75,7 @@ void handle_sigsys(int sig, siginfo_t * info, void * ucontext) {
     uint64_t syscall = regs[REGARG];
 
     if (syscall == SYSLINUX)
-        regs[REGRET] = (uint64_t) &selector;
+        regs[REGRET] = (uint64_t) &config;
     else if (syscall > _NSEC || systab[syscall] == NULL)
         fprintf(stderr, "P9: bad system call (%ld)\n", syscall);
     else regs[REGRET] = systab[syscall](rsp, regs);
@@ -88,6 +88,7 @@ int main(int argc, char * argv[]) {
     }
 
     self.pid = getpid();
+    revertconf(&config);
 
     int fd = open(argv[1], O_RDONLY);
     if (fd == -1) return errno;

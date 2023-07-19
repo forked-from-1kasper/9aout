@@ -37,7 +37,12 @@ enum x86_pf_error_code {
     X86_PF_SGX   = 1 << 15,
 };
 
-uint8_t selector = SYSCALL_DISPATCH_FILTER_ALLOW;
+Conf config;
+
+void revertconf(Conf * c) {
+    c->sudselector  = SYSCALL_DISPATCH_FILTER_ALLOW;
+    c->execfallback = 0;
+}
 
 void sigsegv(int sig, siginfo_t * info, void * ucontext) {
     ucontext_t * context = (ucontext_t *) ucontext;
@@ -105,12 +110,12 @@ int sudinit(void) {
 
     // also look at https://github.com/meme/limbo
 
-    if (prctl(PR_SET_SYSCALL_USER_DISPATCH, PR_SYS_DISPATCH_ON, region.begin, 1 + region.end - region.begin, &selector)) {
+    if (prctl(PR_SET_SYSCALL_USER_DISPATCH, PR_SYS_DISPATCH_ON, region.begin, region.end - region.begin, &config.sudselector)) {
         fprintf(stderr, "Kernel does not support CONFIG_SYSCALL_USER_DISPATCH\n");
         return -1;
     }
 
-    selector = SYSCALL_DISPATCH_FILTER_BLOCK; return 0;
+    config.sudselector = SYSCALL_DISPATCH_FILTER_BLOCK; return 0;
 }
 
 // “loadaout” assumes that “argv” is null-terminated
@@ -130,12 +135,10 @@ int loadaout(int fd, int argc, char ** argv) {
     hdr.pcsz     = be32toh(hdr.pcsz);
     hdr.entry    = be64toh(hdr.entry);
 
-    if (hdr.magic != S_MAGIC || hdr.entry < UTZERO + sizeof(header))
-    #ifdef LINUX_FALLBACK
-        { execvp(argv[0], argv); return errno; }
-    #else
-        return ENOEXEC;
-    #endif
+    if (hdr.magic != S_MAGIC || hdr.entry < UTZERO + sizeof(header)) {
+        if (config.execfallback) { execvp(argv[0], argv); return errno; }
+        else return ENOEXEC;
+    }
 
     text.size = sizeof(header) + hdr.text;
     data.size = hdr.data + hdr.bss;
