@@ -20,7 +20,7 @@ struct SharedMem {
     pthread_mutex_t * mutex;
 };
 
-int    memnewmap(SharedMem *, void *);
+int    memnewmap(SharedMem *);
 int     memnewfd(SharedMem *);
 int  memnewmutex(SharedMem *);
 void     memlock(SharedMem *);
@@ -56,7 +56,6 @@ struct Proc {
 
 extern Proc self;
 
-void swap(Segment, SharedMem);
 void nuke();
 
 void    insertq(Waitq **, int, char *);

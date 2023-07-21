@@ -107,8 +107,8 @@ uint64_t sys_rfork(uint64_t * rsp, greg_t * regs) {
 
                 if (nbytes == -1) panic("sys: %s", geterror(errno));
 
-                errmem = memnewmutex(&self.data);                if (errmem) panic("sys: %s", geterror(errmem));
-                errmem = memnewmap(&self.data, self.data.begin); if (errmem) panic("sys: %s", geterror(errmem));
+                if (errmem = memnewmutex(&self.data)) panic("sys: %s", geterror(errmem));
+                if (errmem = memnewmap(&self.data))   panic("sys: %s", geterror(errmem));
             }
 
             if (flags & RFCFDG) {

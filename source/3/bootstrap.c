@@ -123,8 +123,6 @@ int loadaout(int fd, int argc, char ** argv) {
     header hdr; ssize_t readn = read(fd, &hdr, sizeof(header));
     if (readn != sizeof(header)) return errno;
 
-    Segment text = {0}; SharedMem data = {0};
-
     hdr.magic    = be32toh(hdr.magic);
     hdr.text     = be32toh(hdr.text);
     hdr.data     = be32toh(hdr.data);
@@ -140,12 +138,12 @@ int loadaout(int fd, int argc, char ** argv) {
         else return ENOEXEC;
     }
 
-    text.size = sizeof(header) + hdr.text;
-    data.size = hdr.data + hdr.bss;
-
-    uint32_t offset = (text.size / (ALIGN + 1) + 1) * (ALIGN + 1);
-
     nuke(); // Point of no return (any “return” below will result in crash, since it will eventually return to nowhere)
+
+    self.text.size = sizeof(header) + hdr.text;
+    self.data.size = hdr.data + hdr.bss;
+
+    uint32_t offset = (self.text.size / ALIGN1 + 1) * ALIGN1;
 
     // In case when “load” was called by “exec” (Plan 9’s) syscall, “handle_sigsys” will not return
     // and SIGSYS will stay blocked, so the next syscall, according to the behaviour of “sigaction”,
@@ -158,20 +156,20 @@ int loadaout(int fd, int argc, char ** argv) {
     if (self.name) free(self.name); char * copy = strdup(argv[0]);
     self.name = strdup(basename(copy)); free(copy);
 
-    text.begin = mmap((char*) UTZERO, text.size, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_FIXED, fd, 0);
-    if (text.begin == MAP_FAILED) panic("sys: %s", geterror(errno));
+    self.text.begin = mmap((char*) UTZERO, self.text.size, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_FIXED, fd, 0);
+    if (self.text.begin == MAP_FAILED) panic("sys: %s", geterror(errno));
+
+    self.data.begin = (void*) (UTZERO + offset);
 
     int errmem = 0;
 
-    errmem = memnewmutex(&data);                        if (errmem) panic("sys: %s", geterror(errmem));
-    errmem = memnewfd(&data);                           if (errmem) panic("sys: %s", geterror(errmem));
-    errmem = memnewmap(&data, (void*) UTZERO + offset); if (errmem) panic("sys: %s", geterror(errmem));
+    if (errmem = memnewfd(&self.data))    panic("sys: %s", geterror(errmem));
+    if (errmem = memnewmutex(&self.data)) panic("sys: %s", geterror(errmem));
+    if (errmem = memnewmap(&self.data))   panic("sys: %s", geterror(errmem));
 
-    swap(text, data);
-
-    lseek(fd, text.size, SEEK_SET);
-    read(fd, data.begin, hdr.data);
-    memset(data.begin + hdr.data, 0, hdr.bss);
+    lseek(fd, self.text.size, SEEK_SET);
+    read(fd, self.data.begin, hdr.data);
+    memset(self.data.begin + hdr.data, 0, hdr.bss);
 
     close(fd);
 

@@ -28,12 +28,12 @@ int memnewfd(SharedMem * mem) {
     return 0;
 }
 
-int memnewmap(SharedMem * mem, void * addr) {
+int memnewmap(SharedMem * mem) {
     if (mem->begin)
         if (munmap(mem->begin, mem->size) == -1)
             return errno;
 
-    mem->begin = mmap(addr, mem->size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, mem->memfd, 0);
+    mem->begin = mmap(mem->begin, mem->size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, mem->memfd, 0);
     return (mem->begin == MAP_FAILED) ? errno : 0;
 }
 
@@ -62,9 +62,6 @@ void memwait(SharedMem * mem) {
     pthread_mutex_lock(mem->mutex);
     pthread_mutex_unlock(mem->mutex);
 }
-
-void swap(Segment text, SharedMem data)
-{ self.text = text; self.data = data; }
 
 void insertq(Waitq ** wq, int pid, char * exitmsg) {
     Waitq * wqnew = malloc(sizeof(Waitq));

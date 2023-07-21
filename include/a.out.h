@@ -43,6 +43,7 @@ struct header {
 
 #define TOS_SIZE 14
 #define ALIGN    0x1fffff
+#define ALIGN1   (ALIGN + 1)
 
 #define KiB 1024u                  /* Kibi 0x0000000000000400 */
 #define MiB 1048576u               /* Mebi 0x0000000000100000 */
