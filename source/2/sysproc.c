@@ -65,10 +65,8 @@ uint64_t sys_rfork(uint64_t * rsp, greg_t * regs) {
 
     params.exit_signal = SIGCHLD;
 
-    char * exitmsg = NULL;
-
     if (flags & RFPROC) {
-        exitmsg = mmap(NULL, ERRLEN * sizeof(char), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        char * exitmsg = mmap(NULL, ERRLEN * sizeof(char), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
         memset(exitmsg, 0, ERRLEN * sizeof(char));
 
         if (!(flags & RFMEM)) memlock(&self.data);
