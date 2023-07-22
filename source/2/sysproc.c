@@ -70,14 +70,17 @@ uint64_t sys_rfork(uint64_t * rsp, greg_t * regs) {
     if (flags & RFPROC) {
         exitmsg = mmap(NULL, ERRLEN * sizeof(char), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
         memset(exitmsg, 0, ERRLEN * sizeof(char));
-    }
 
-    if (!(flags & RFMEM)) memlock(&self.data);
+        if (!(flags & RFMEM)) memlock(&self.data);
+        int pid = syscall(SYS_clone3, &params, sizeof(params));
 
-    int pid = syscall(SYS_clone3, &params, sizeof(params));
+        switch (pid) {
+        case -1:
+            seterrno(); munmap(exitmsg, ERRLEN * sizeof(char));
+            if (!(flags & RFMEM)) memunlock(&self.data);
+            break;
 
-    if (flags & RFPROC) {
-        if (pid == 0) {
+        case 0:
             self.pid = getpid();
 
             // https://man7.org/linux/man-pages/man2/prctl.2.html
@@ -115,13 +118,16 @@ uint64_t sys_rfork(uint64_t * rsp, greg_t * regs) {
                 close_range(0L, self.data.memfd - 1L, 0);
                 close_range(self.data.memfd + 1L, -1L, 0);
             }
-        } else {
-            if (!(flags & RFMEM)) memwait(&self.data);
-            insertq(&self.wq, pid, exitmsg);
-        }
-    }
 
-    return pid;
+            break;
+
+        default:
+            if (!(flags & RFMEM)) memwait(&self.data);
+            insertq(&self.wq, pid, exitmsg); break;
+        }
+
+        return pid;
+    } else return 0;
 }
 
 // TODO: NULL tests for calloc’s everywhere
